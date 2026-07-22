@@ -121,7 +121,7 @@ class CouponOperationsImplTest {
 	}
 
 	@Test
-	fun `redeem returns Success on the coupon's country`() {
+	fun `redeem returns Success`() {
 		// given
 		whenever(couponRepository.findByCode("WIOSNA")).thenReturn(coupon(country = "PL"))
 		geoIp.country = CountryCode.of("PL")
@@ -131,9 +131,7 @@ class CouponOperationsImplTest {
 		val result = operations.redeem(RedeemCouponCommand("WIOSNA", userId, clientIp))
 
 		// then
-		val success = assertIs<RedemptionResult.Success>(result)
-		assertEquals("WIOSNA", success.couponCode)
-		assertEquals("PL", success.country)
+		assertEquals(RedemptionResult.Success, result)
 	}
 
 	@Test

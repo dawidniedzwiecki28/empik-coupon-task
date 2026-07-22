@@ -100,7 +100,7 @@ data class CouponView(
  * so the REST layer maps each to an HTTP status and the compiler enforces total handling.
  */
 sealed interface RedemptionResult {
-	data class Success(val couponCode: String, val country: String) : RedemptionResult
+	data object Success : RedemptionResult
 
 	data object CouponNotFound : RedemptionResult
 

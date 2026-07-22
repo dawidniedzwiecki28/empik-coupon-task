@@ -63,7 +63,7 @@ class CouponOperationsImpl(
 					"Redemption succeeded: code={} userId={} country={}",
 					coupon.code, command.userId, callerCountry,
 				)
-				RedemptionResult.Success(coupon.code, callerCountry.value)
+				RedemptionResult.Success
 			}
 
 			ConsumeOutcome.LimitReached -> {
