@@ -15,8 +15,6 @@ import com.dawidniedzwiecki.coupon.core.infrastructure.persistence.CouponReposit
 import org.slf4j.LoggerFactory
 import org.springframework.dao.DataIntegrityViolationException
 import java.time.Clock
-import java.time.Instant
-import java.util.UUID
 
 /** Stateless; pushes concurrency invariants down to [CouponRedemptionExecutor], so it scales horizontally. */
 class CouponOperationsImpl(
@@ -29,15 +27,7 @@ class CouponOperationsImpl(
 	private val log = LoggerFactory.getLogger(javaClass)
 
 	override fun createCoupon(command: CreateCouponCommand): CouponView {
-		require(command.maxUses > 0) { "maxUses must be positive" }
-		val entity = CouponEntity(
-			id = UUID.randomUUID(),
-			code = CouponEntity.normalizeCode(command.code),
-			createdAt = Instant.now(clock),
-			maxUses = command.maxUses,
-			currentUses = 0,
-			country = CountryCode.of(command.country).value,
-		)
+		val entity = CouponEntity.create(command, clock)
 		val saved = try {
 			couponRepository.saveAndFlush(entity)
 		} catch (_: DataIntegrityViolationException) {
