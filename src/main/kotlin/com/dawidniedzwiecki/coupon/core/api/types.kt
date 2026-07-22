@@ -42,9 +42,27 @@ value class IpAddress private constructor(val value: String) {
 			}
 		}
 
-		private fun isIpv6(s: String): Boolean =
-			':' in s && s.length <= 45 &&
-				s.all { it.isDigit() || it in 'a'..'f' || it in 'A'..'F' || it == ':' || it == '.' || it == '%' }
+		private fun isIpv6(raw: String): Boolean {
+			val s = raw.substringBefore('%') // ignore an optional zone index
+			val compressed = "::" in s
+			if (compressed) {
+				if (s.indexOf("::") != s.lastIndexOf("::")) return false // at most one "::"
+			} else if (s.startsWith(':') || s.endsWith(':')) {
+				return false
+			}
+			val groups = s.split(':').filter { it.isNotEmpty() }
+			var count = 0
+			for ((i, g) in groups.withIndex()) {
+				if (i == groups.lastIndex && '.' in g) {
+					if (!isIpv4(g)) return false
+					count += 2 // an embedded IPv4 tail occupies two 16-bit groups
+				} else {
+					if (g.length !in 1..4 || g.any { it !in '0'..'9' && it !in 'a'..'f' && it !in 'A'..'F' }) return false
+					count += 1
+				}
+			}
+			return if (compressed) count <= 7 else count == 8
+		}
 	}
 
 	override fun toString(): String = value

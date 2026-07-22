@@ -19,6 +19,24 @@ class IpAddressTest {
 	}
 
 	@Test
+	fun `accepts IPv6 shorthands and embedded IPv4`() {
+		// expect
+		assertEquals("::1", IpAddress.of("::1").value)
+		assertEquals("::", IpAddress.of("::").value)
+		assertEquals("::ffff:192.168.1.1", IpAddress.of("::ffff:192.168.1.1").value)
+	}
+
+	@Test
+	fun `rejects malformed IPv6 addresses`() {
+		// expect
+		assertFailsWith<IllegalArgumentException> { IpAddress.of(":") }
+		assertFailsWith<IllegalArgumentException> { IpAddress.of(":::") }
+		assertFailsWith<IllegalArgumentException> { IpAddress.of("2001:db8:::1") }
+		assertFailsWith<IllegalArgumentException> { IpAddress.of("12345::") }
+		assertFailsWith<IllegalArgumentException> { IpAddress.of("gggg::1") }
+	}
+
+	@Test
 	fun `trims surrounding whitespace`() {
 		// expect
 		assertEquals("10.0.0.1", IpAddress.of("  10.0.0.1  ").value)

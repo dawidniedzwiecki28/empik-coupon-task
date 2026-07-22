@@ -156,10 +156,12 @@ class CouponOperationsImplTest {
 		givenCoupon(code = "WIOSNA", country = "PL")
 		geoIp.failure = GeoIpUnavailableException("1.1.1.1")
 
-		// then
+		// when
 		assertFailsWith<GeoIpUnavailableException> {
 			operations.redeem(RedeemCouponCommand("WIOSNA", userId, clientIp))
 		}
+
+		// then
 		assertEquals(0, redemptionRepository.consumeCalls)
 	}
 
