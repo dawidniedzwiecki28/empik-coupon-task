@@ -2,6 +2,7 @@ package com.dawidniedzwiecki.coupon.core.domain
 
 import com.dawidniedzwiecki.coupon.core.api.CountryCode
 import com.dawidniedzwiecki.coupon.core.api.CouponCodeAlreadyExistsException
+import com.dawidniedzwiecki.coupon.core.api.CouponId
 import com.dawidniedzwiecki.coupon.core.api.CouponOperations
 import com.dawidniedzwiecki.coupon.core.api.CreateCouponCommand
 import com.dawidniedzwiecki.coupon.core.api.RedeemCouponCommand
@@ -12,7 +13,6 @@ import com.dawidniedzwiecki.coupon.core.infrastructure.persistence.CouponReposit
 import org.slf4j.LoggerFactory
 import org.springframework.dao.DataIntegrityViolationException
 import java.time.Clock
-import java.util.UUID
 
 /** Stateless; pushes concurrency invariants down to [CouponRedemptionExecutor], so it scales horizontally. */
 class CouponOperationsImpl(
@@ -24,7 +24,7 @@ class CouponOperationsImpl(
 
 	private val log = LoggerFactory.getLogger(javaClass)
 
-	override fun createCoupon(command: CreateCouponCommand): UUID {
+	override fun createCoupon(command: CreateCouponCommand): CouponId {
 		val entity = CouponEntity.create(command, clock)
 		val saved = try {
 			couponRepository.saveAndFlush(entity)
@@ -32,7 +32,7 @@ class CouponOperationsImpl(
 			throw CouponCodeAlreadyExistsException(entity.code)
 		}
 		log.info("Coupon created: id={} code={} country={} maxUses={}", saved.id, saved.code, saved.country, saved.maxUses)
-		return saved.id
+		return CouponId(saved.id)
 	}
 
 	override fun redeem(command: RedeemCouponCommand): RedemptionResult {

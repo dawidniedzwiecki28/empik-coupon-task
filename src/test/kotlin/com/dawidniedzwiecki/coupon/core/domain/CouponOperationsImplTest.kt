@@ -60,7 +60,7 @@ class CouponOperationsImplTest {
 		assertEquals(3, saved.maxUses)
 		assertEquals(0, saved.currentUses)
 		assertEquals(Instant.parse("2026-01-01T00:00:00Z"), saved.createdAt)
-		assertEquals(saved.id, id)
+		assertEquals(saved.id, id.value)
 	}
 
 	@Test

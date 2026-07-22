@@ -25,8 +25,8 @@ class CouponCodeTest {
 	}
 
 	@Test
-	fun `rejects a code longer than 64 characters`() {
+	fun `rejects a code longer than the max length`() {
 		// expect
-		assertFailsWith<IllegalArgumentException> { CouponCode.of("A".repeat(65)) }
+		assertFailsWith<IllegalArgumentException> { CouponCode.of("A".repeat(CouponCode.MAX_LENGTH + 1)) }
 	}
 }

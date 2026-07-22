@@ -73,9 +73,12 @@ value class IpAddress private constructor(val value: String) {
 @JvmInline
 value class CouponCode private constructor(val value: String) {
 	companion object {
+		/** Matches the coupons.code column width; not a runtime knob (raising it needs a migration). */
+		const val MAX_LENGTH = 64
+
 		fun of(raw: String): CouponCode {
 			val normalized = raw.trim().uppercase()
-			require(normalized.isNotEmpty() && normalized.length <= 64) { "Invalid coupon code: '$raw'" }
+			require(normalized.isNotEmpty() && normalized.length <= MAX_LENGTH) { "Invalid coupon code: '$raw'" }
 			return CouponCode(normalized)
 		}
 	}
@@ -86,6 +89,10 @@ value class CouponCode private constructor(val value: String) {
 /** Opaque, caller-supplied user identifier — a UUID we mandate, so it is non-PII. */
 @JvmInline
 value class UserId(val value: UUID)
+
+/** Identifier of a coupon. */
+@JvmInline
+value class CouponId(val value: UUID)
 
 data class CreateCouponCommand(
 	val code: CouponCode,
