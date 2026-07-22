@@ -1,6 +1,7 @@
 package com.dawidniedzwiecki.coupon.core.domain
 
 import com.dawidniedzwiecki.coupon.core.api.CountryCode
+import com.dawidniedzwiecki.coupon.core.api.CouponCodeAlreadyExistsException
 import com.dawidniedzwiecki.coupon.core.api.CouponOperations
 import com.dawidniedzwiecki.coupon.core.api.CouponView
 import com.dawidniedzwiecki.coupon.core.api.CreateCouponCommand
@@ -8,17 +9,19 @@ import com.dawidniedzwiecki.coupon.core.api.RedeemCouponCommand
 import com.dawidniedzwiecki.coupon.core.api.RedemptionResult
 import com.dawidniedzwiecki.coupon.core.infrastructure.geoip.GeoIpResolver
 import com.dawidniedzwiecki.coupon.core.infrastructure.persistence.ConsumeOutcome
-import com.dawidniedzwiecki.coupon.core.infrastructure.persistence.CouponRedemptionRepository
+import com.dawidniedzwiecki.coupon.core.infrastructure.persistence.CouponEntity
+import com.dawidniedzwiecki.coupon.core.infrastructure.persistence.CouponRedemptionExecutor
 import com.dawidniedzwiecki.coupon.core.infrastructure.persistence.CouponRepository
 import org.slf4j.LoggerFactory
+import org.springframework.dao.DataIntegrityViolationException
 import java.time.Clock
 import java.time.Instant
 import java.util.UUID
 
-/** Stateless; pushes concurrency invariants down to [CouponRedemptionRepository], so it scales horizontally. */
+/** Stateless; pushes concurrency invariants down to [CouponRedemptionExecutor], so it scales horizontally. */
 class CouponOperationsImpl(
 	private val couponRepository: CouponRepository,
-	private val redemptionRepository: CouponRedemptionRepository,
+	private val redemptionExecutor: CouponRedemptionExecutor,
 	private val geoIpResolver: GeoIpResolver,
 	private val clock: Clock,
 ) : CouponOperations {
@@ -27,38 +30,44 @@ class CouponOperationsImpl(
 
 	override fun createCoupon(command: CreateCouponCommand): CouponView {
 		require(command.maxUses > 0) { "maxUses must be positive" }
-		val coupon = Coupon(
+		val entity = CouponEntity(
 			id = UUID.randomUUID(),
-			code = Coupon.normalizeCode(command.code),
+			code = CouponEntity.normalizeCode(command.code),
 			createdAt = Instant.now(clock),
 			maxUses = command.maxUses,
 			currentUses = 0,
-			country = CountryCode.of(command.country),
+			country = CountryCode.of(command.country).value,
 		)
-		val saved = couponRepository.save(coupon)
+		val saved = try {
+			couponRepository.saveAndFlush(entity)
+		} catch (_: DataIntegrityViolationException) {
+			throw CouponCodeAlreadyExistsException(entity.code)
+		}
 		log.info("Coupon created: code={} country={} maxUses={}", saved.code, saved.country, saved.maxUses)
 		return saved.toView()
 	}
 
 	override fun redeem(command: RedeemCouponCommand): RedemptionResult {
-		val normalizedCode = Coupon.normalizeCode(command.code)
+		val normalizedCode = CouponEntity.normalizeCode(command.code)
 		val coupon = couponRepository.findByCode(normalizedCode)
 		if (coupon == null) {
 			log.info("Redemption rejected: outcome=COUPON_NOT_FOUND code={} userId={}", normalizedCode, command.userId)
 			return RedemptionResult.CouponNotFound
 		}
 
-		// Resolve country before the write tx so the external call never holds a row lock; fail-closed on error.
+		// Resolve country before the write transaction so the external call never holds a row lock;
+		// fail-closed on error.
 		val callerCountry = geoIpResolver.resolveCountry(command.clientIp)
-		if (coupon.country != callerCountry) {
+		val couponCountry = CountryCode.of(coupon.country)
+		if (couponCountry != callerCountry) {
 			log.info(
 				"Redemption rejected: outcome=COUNTRY_NOT_ALLOWED code={} userId={} required={} caller={}",
-				coupon.code, command.userId, coupon.country, callerCountry,
+				coupon.code, command.userId, couponCountry, callerCountry,
 			)
-			return RedemptionResult.CountryNotAllowed(coupon.country.value, callerCountry.value)
+			return RedemptionResult.CountryNotAllowed(couponCountry.value, callerCountry.value)
 		}
 
-		return when (val outcome = redemptionRepository.consume(coupon.id, command.userId)) {
+		return when (val outcome = redemptionExecutor.consume(coupon.id, command.userId)) {
 			is ConsumeOutcome.Redeemed -> {
 				log.info(
 					"Redemption succeeded: code={} userId={} country={} uses={}/{}",
@@ -80,5 +89,5 @@ class CouponOperationsImpl(
 	}
 }
 
-private fun Coupon.toView(): CouponView =
-	CouponView(id, code, createdAt, maxUses, currentUses, country.value)
+private fun CouponEntity.toView(): CouponView =
+	CouponView(id, code, createdAt, maxUses, currentUses, country)
