@@ -1,6 +1,7 @@
 package com.dawidniedzwiecki.coupon.core.infrastructure.persistence
 
 import org.springframework.dao.DataIntegrityViolationException
+import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.support.TransactionTemplate
@@ -28,7 +29,9 @@ class CouponRedemptionExecutor(
 				if (couponRepository.incrementUsesIfBelowMax(couponId) == 0) {
 					throw LimitReachedException()
 				}
-				val coupon = couponRepository.findById(couponId).orElseThrow()
+				// Just incremented under lock, so the row must exist; a miss means data corruption.
+				val coupon = couponRepository.findByIdOrNull(couponId)
+					?: error("Coupon $couponId not found immediately after a successful increment")
 				redeemed = ConsumeOutcome.Redeemed(coupon.currentUses, coupon.maxUses)
 			}
 			redeemed
