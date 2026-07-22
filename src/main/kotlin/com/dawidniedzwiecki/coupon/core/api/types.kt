@@ -21,17 +21,49 @@ value class CountryCode private constructor(val value: String) {
 	override fun toString(): String = value
 }
 
+/**
+ * A syntactically valid IP address (IPv4 or IPv6), validated on construction so an invalid
+ * address cannot reach the geo-IP resolver. This is a syntactic guard, not full RFC validation.
+ */
+@JvmInline
+value class IpAddress private constructor(val value: String) {
+	companion object {
+		fun of(raw: String): IpAddress {
+			val trimmed = raw.trim()
+			require(isIpv4(trimmed) || isIpv6(trimmed)) { "Invalid IP address: '$raw'" }
+			return IpAddress(trimmed)
+		}
+
+		private fun isIpv4(s: String): Boolean {
+			val parts = s.split('.')
+			return parts.size == 4 && parts.all { part ->
+				val octet = part.toIntOrNull()
+				octet != null && octet in 0..255 && part == octet.toString() // rejects leading zeros
+			}
+		}
+
+		private fun isIpv6(s: String): Boolean =
+			':' in s && s.length <= 45 &&
+				s.all { it.isDigit() || it in 'a'..'f' || it in 'A'..'F' || it == ':' || it == '.' || it == '%' }
+	}
+
+	override fun toString(): String = value
+}
+
 data class CreateCouponCommand(
 	val code: String,
 	val maxUses: Int,
 	val country: String,
 )
 
-/** [clientIp] is resolved at the REST edge and passed in, keeping the core free of the servlet layer. */
+/**
+ * [userId] is a caller-supplied UUID (we mandate the format, so it is opaque and non-PII).
+ * [clientIp] is resolved at the REST edge and passed in, keeping the core free of the servlet layer.
+ */
 data class RedeemCouponCommand(
 	val code: String,
-	val userId: String,
-	val clientIp: String,
+	val userId: UUID,
+	val clientIp: IpAddress,
 )
 
 data class CouponView(

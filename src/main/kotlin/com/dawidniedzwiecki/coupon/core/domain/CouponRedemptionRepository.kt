@@ -7,7 +7,7 @@ import java.util.UUID
  * increment must be atomic and safe across instances, persisting nothing unless it succeeds.
  */
 interface CouponRedemptionRepository {
-	fun consume(couponId: UUID, userId: String): ConsumeOutcome
+	fun consume(couponId: UUID, userId: UUID): ConsumeOutcome
 }
 
 /** Result of a single [CouponRedemptionRepository.consume] attempt. */

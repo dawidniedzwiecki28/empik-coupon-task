@@ -4,6 +4,7 @@ import com.dawidniedzwiecki.coupon.core.api.CountryCode
 import com.dawidniedzwiecki.coupon.core.api.CouponCodeAlreadyExistsException
 import com.dawidniedzwiecki.coupon.core.api.CreateCouponCommand
 import com.dawidniedzwiecki.coupon.core.api.GeoIpUnavailableException
+import com.dawidniedzwiecki.coupon.core.api.IpAddress
 import com.dawidniedzwiecki.coupon.core.api.RedeemCouponCommand
 import com.dawidniedzwiecki.coupon.core.api.RedemptionResult
 import org.junit.jupiter.api.Test
@@ -22,6 +23,9 @@ class CouponOperationsImplTest {
 	private val redemptionRepository = FakeCouponRedemptionRepository()
 	private val geoIp = FakeGeoIpResolver()
 	private val operations = CouponOperationsImpl(couponRepository, redemptionRepository, geoIp, clock)
+
+	private val userId: UUID = UUID.randomUUID()
+	private val clientIp = IpAddress.of("1.1.1.1")
 
 	// --- creation ---
 
@@ -64,7 +68,7 @@ class CouponOperationsImplTest {
 		// expect
 		assertEquals(
 			RedemptionResult.CouponNotFound,
-			operations.redeem(RedeemCouponCommand(code = "NOPE", userId = "u1", clientIp = "1.1.1.1")),
+			operations.redeem(RedeemCouponCommand(code = "NOPE", userId = userId, clientIp = clientIp)),
 		)
 	}
 
@@ -75,7 +79,7 @@ class CouponOperationsImplTest {
 		geoIp.country = CountryCode.of("DE")
 
 		// when
-		val result = operations.redeem(RedeemCouponCommand("WIOSNA", "u1", "1.1.1.1"))
+		val result = operations.redeem(RedeemCouponCommand("WIOSNA", userId, clientIp))
 
 		// then
 		val notAllowed = assertIs<RedemptionResult.CountryNotAllowed>(result)
@@ -92,7 +96,7 @@ class CouponOperationsImplTest {
 		redemptionRepository.outcome = ConsumeOutcome.Redeemed(currentUses = 1, maxUses = 3)
 
 		// when
-		val result = operations.redeem(RedeemCouponCommand(code = "wiosna", userId = "u1", clientIp = "1.1.1.1"))
+		val result = operations.redeem(RedeemCouponCommand(code = "wiosna", userId = userId, clientIp = clientIp))
 
 		// then
 		assertIs<RedemptionResult.Success>(result)
@@ -106,7 +110,7 @@ class CouponOperationsImplTest {
 		redemptionRepository.outcome = ConsumeOutcome.Redeemed(currentUses = 1, maxUses = 3)
 
 		// when
-		val result = operations.redeem(RedeemCouponCommand("WIOSNA", "u1", "1.1.1.1"))
+		val result = operations.redeem(RedeemCouponCommand("WIOSNA", userId, clientIp))
 
 		// then
 		val success = assertIs<RedemptionResult.Success>(result)
@@ -122,7 +126,7 @@ class CouponOperationsImplTest {
 		redemptionRepository.outcome = ConsumeOutcome.LimitReached
 
 		// when
-		val result = operations.redeem(RedeemCouponCommand("WIOSNA", "u1", "1.1.1.1"))
+		val result = operations.redeem(RedeemCouponCommand("WIOSNA", userId, clientIp))
 
 		// then
 		assertEquals(RedemptionResult.LimitReached, result)
@@ -136,7 +140,7 @@ class CouponOperationsImplTest {
 		redemptionRepository.outcome = ConsumeOutcome.AlreadyRedeemed
 
 		// when
-		val result = operations.redeem(RedeemCouponCommand("WIOSNA", "u1", "1.1.1.1"))
+		val result = operations.redeem(RedeemCouponCommand("WIOSNA", userId, clientIp))
 
 		// then
 		assertEquals(RedemptionResult.AlreadyRedeemedByUser, result)
@@ -150,7 +154,7 @@ class CouponOperationsImplTest {
 
 		// then
 		assertFailsWith<GeoIpUnavailableException> {
-			operations.redeem(RedeemCouponCommand("WIOSNA", "u1", "1.1.1.1"))
+			operations.redeem(RedeemCouponCommand("WIOSNA", userId, clientIp))
 		}
 		assertEquals(0, redemptionRepository.consumeCalls)
 	}
@@ -176,7 +180,7 @@ private class FakeCouponRedemptionRepository : CouponRedemptionRepository {
 	var outcome: ConsumeOutcome = ConsumeOutcome.Redeemed(currentUses = 1, maxUses = 3)
 	var consumeCalls = 0
 
-	override fun consume(couponId: UUID, userId: String): ConsumeOutcome {
+	override fun consume(couponId: UUID, userId: UUID): ConsumeOutcome {
 		consumeCalls++
 		return outcome
 	}
@@ -186,7 +190,7 @@ private class FakeGeoIpResolver : GeoIpResolver {
 	var country: CountryCode = CountryCode.of("PL")
 	var failure: GeoIpUnavailableException? = null
 
-	override fun resolveCountry(ip: String): CountryCode {
+	override fun resolveCountry(ip: IpAddress): CountryCode {
 		failure?.let { throw it }
 		return country
 	}
