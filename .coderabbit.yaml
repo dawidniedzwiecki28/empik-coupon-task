@@ -43,9 +43,12 @@ reviews:
         transaction — flag any transaction held across the HTTP call.
     - path: "**/*Test*.*"
       instructions: >
-        Expect a concurrency test proving that exactly max_uses redemptions succeed under
-        parallel load, and coverage of every RedemptionResult branch. Flag tests that assert
-        on whole-table counts instead of scoped queries.
+        Tests must follow Arrange-Act-Assert, marked with `// given`, `// when`, `// then`
+        comments; use `// expect` for simple single-expression cases where act and assert
+        collapse into one statement (omit a section only when genuinely empty). Expect a concurrency test
+        proving that exactly max_uses redemptions succeed under parallel load, and coverage of
+        every RedemptionResult branch. Flag tests that assert on whole-table counts instead of
+        scoped queries.
   tools:
     detekt:
       enabled: true
