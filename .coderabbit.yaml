@@ -35,7 +35,10 @@ reviews:
         ProblemDetail via @RestControllerAdvice, never a 200 response carrying an error payload.
     - path: "**/infrastructure/**"
       instructions: >
-        Adapters implementing core ports. CONCURRENCY-CRITICAL: the usage limit must be an
+        The module's infrastructure: Spring Data JpaRepository interfaces + entities, the
+        transactional redemption executor, and outbound gateway interfaces (e.g. GeoIpResolver)
+        alongside their adapters. Under this module convention, gateway port interfaces MAY live
+        here next to their adapter — do not flag that. CONCURRENCY-CRITICAL: the usage limit must be an
         atomic conditional UPDATE (... WHERE current_uses < max_uses) acting on the affected
         row / returned row. FLAG any read-then-write or check-then-act on the counter, any
         in-memory / JVM lock (synchronized, ReentrantLock), and any use of COUNT(*) over

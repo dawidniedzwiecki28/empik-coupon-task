@@ -47,6 +47,9 @@ value class IpAddress private constructor(val value: String) {
 			val compressed = "::" in s
 			if (compressed) {
 				if (s.indexOf("::") != s.lastIndexOf("::")) return false // at most one "::"
+				// A single leading/trailing ':' that is not part of "::" is malformed (":1::", "::1:").
+				if (s.startsWith(':') && !s.startsWith("::")) return false
+				if (s.endsWith(':') && !s.endsWith("::")) return false
 			} else if (s.startsWith(':') || s.endsWith(':')) {
 				return false
 			}
