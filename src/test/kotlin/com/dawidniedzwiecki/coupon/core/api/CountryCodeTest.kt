@@ -33,6 +33,12 @@ class CountryCodeTest {
 	}
 
 	@Test
+	fun `rejects a single character that uppercases to two letters`() {
+		// expect
+		assertFailsWith<IllegalArgumentException> { CountryCode.of("ß") }
+	}
+
+	@Test
 	fun `rejects non-letter codes`() {
 		// expect
 		assertFailsWith<IllegalArgumentException> { CountryCode.of("1A") }
