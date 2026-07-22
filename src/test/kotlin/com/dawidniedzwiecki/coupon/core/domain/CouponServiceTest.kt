@@ -71,6 +71,7 @@ class CouponServiceTest {
 		val notAllowed = assertIs<RedemptionResult.CountryNotAllowed>(result)
 		assertEquals("PL", notAllowed.requiredCountry)
 		assertEquals("DE", notAllowed.callerCountry)
+		assertEquals(0, redemptionStore.consumeCalls, "country rejection must not consume a redemption")
 	}
 
 	@Test

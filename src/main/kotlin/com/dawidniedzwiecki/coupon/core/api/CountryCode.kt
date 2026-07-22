@@ -6,11 +6,13 @@ value class CountryCode private constructor(val value: String) {
 
 	companion object {
 		fun of(raw: String): CountryCode {
-			val normalized = raw.trim().uppercase()
-			require(normalized.length == 2 && normalized.all { it in 'A'..'Z' }) {
+			// Validate before uppercasing: otherwise a 1-char input like "ß" expands to "SS"
+			// and would slip past the two-letter check.
+			val trimmed = raw.trim()
+			require(trimmed.length == 2 && trimmed.all { it in 'A'..'Z' || it in 'a'..'z' }) {
 				"Invalid ISO 3166-1 alpha-2 country code: '$raw'"
 			}
-			return CountryCode(normalized)
+			return CountryCode(trimmed.uppercase())
 		}
 	}
 

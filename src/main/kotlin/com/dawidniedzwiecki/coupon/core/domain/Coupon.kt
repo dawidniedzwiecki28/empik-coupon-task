@@ -13,6 +13,10 @@ data class Coupon(
 	val currentUses: Int,
 	val country: CountryCode,
 ) {
+	init {
+		require(code == normalizeCode(code)) { "code must be normalized" }
+	}
+
 	companion object {
 		fun normalizeCode(raw: String): String = raw.trim().uppercase()
 	}
