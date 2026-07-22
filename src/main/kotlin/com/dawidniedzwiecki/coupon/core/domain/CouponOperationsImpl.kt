@@ -12,6 +12,7 @@ import com.dawidniedzwiecki.coupon.core.infrastructure.persistence.CouponEntity
 import com.dawidniedzwiecki.coupon.core.infrastructure.persistence.CouponRepository
 import org.slf4j.LoggerFactory
 import org.springframework.dao.DataIntegrityViolationException
+import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
 
 /** Stateless; pushes concurrency invariants down to [CouponRedemptionExecutor], so it scales horizontally. */
@@ -24,15 +25,21 @@ class CouponOperationsImpl(
 
 	private val log = LoggerFactory.getLogger(javaClass)
 
+	@Transactional
 	override fun createCoupon(command: CreateCouponCommand): CouponId {
 		val entity = CouponEntity.create(command, clock)
+		val saved = saveCouponCheckingConstrains(entity)
+		log.info("Coupon created: id={} code={} country={} maxUses={}", saved.id, saved.code, saved.country, saved.maxUses)
+		return CouponId(saved.id)
+	}
+
+	private fun saveCouponCheckingConstrains(entity: CouponEntity): CouponEntity {
 		val saved = try {
 			couponRepository.saveAndFlush(entity)
 		} catch (_: DataIntegrityViolationException) {
 			throw CouponCodeAlreadyExistsException(entity.code)
 		}
-		log.info("Coupon created: id={} code={} country={} maxUses={}", saved.id, saved.code, saved.country, saved.maxUses)
-		return CouponId(saved.id)
+		return saved
 	}
 
 	override fun redeem(command: RedeemCouponCommand): RedemptionResult {
