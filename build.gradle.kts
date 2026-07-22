@@ -9,6 +9,7 @@ plugins {
 	id("org.springframework.boot") version "4.1.0"
 	id("io.spring.dependency-management") version "1.1.7"
 	kotlin("plugin.jpa") version "2.3.21"
+	jacoco
 }
 
 group = "com.dawidniedzwiecki"
@@ -72,4 +73,13 @@ tasks.withType<Test> {
 			println("  ${result.resultType} $cls > ${desc.displayName} (${result.endTime - result.startTime} ms)")
 		}),
 	)
+	finalizedBy(tasks.jacocoTestReport)
+}
+
+tasks.jacocoTestReport {
+	dependsOn(tasks.test)
+	reports {
+		xml.required = true
+		html.required = true
+	}
 }
