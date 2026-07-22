@@ -4,7 +4,7 @@ import com.dawidniedzwiecki.coupon.core.api.CountryCode
 import java.util.UUID
 
 /** Persistence port for coupon create + lookup. */
-interface CouponCatalog {
+interface CouponRepository {
 	/** @throws com.dawidniedzwiecki.coupon.core.api.CouponCodeAlreadyExistsException on duplicate code. */
 	fun save(coupon: Coupon): Coupon
 

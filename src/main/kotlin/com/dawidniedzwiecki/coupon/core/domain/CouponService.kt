@@ -13,7 +13,7 @@ import java.util.UUID
 
 /** Stateless; pushes concurrency invariants down to [CouponRedemptionStore], so it scales horizontally. */
 class CouponService(
-	private val catalog: CouponCatalog,
+	private val couponRepository: CouponRepository,
 	private val redemptionStore: CouponRedemptionStore,
 	private val geoIpResolver: GeoIpResolver,
 	private val eventPublisher: DomainEventPublisher,
@@ -32,14 +32,14 @@ class CouponService(
 			currentUses = 0,
 			country = CountryCode.of(command.country),
 		)
-		val saved = catalog.save(coupon)
+		val saved = couponRepository.save(coupon)
 		log.info("Coupon created: code={} country={} maxUses={}", saved.code, saved.country, saved.maxUses)
 		return saved.toView()
 	}
 
 	override fun redeem(command: RedeemCouponCommand): RedemptionResult {
 		val normalizedCode = Coupon.normalizeCode(command.code)
-		val coupon = catalog.findByCode(normalizedCode)
+		val coupon = couponRepository.findByCode(normalizedCode)
 		if (coupon == null) {
 			log.info("Redemption rejected: outcome=COUPON_NOT_FOUND code={} userId={}", normalizedCode, command.userId)
 			return RedemptionResult.CouponNotFound

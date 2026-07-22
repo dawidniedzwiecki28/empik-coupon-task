@@ -19,11 +19,11 @@ import kotlin.test.assertTrue
 class CouponServiceTest {
 
 	private val clock = Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC)
-	private val catalog = FakeCouponCatalog()
+	private val couponRepository = FakeCouponRepository()
 	private val redemptionStore = FakeRedemptionStore()
 	private val geoIp = FakeGeoIpResolver()
 	private val events = RecordingEventPublisher()
-	private val service = CouponService(catalog, redemptionStore, geoIp, events, clock)
+	private val service = CouponService(couponRepository, redemptionStore, geoIp, events, clock)
 
 	// --- creation ---
 
@@ -180,7 +180,7 @@ class CouponServiceTest {
 	}
 }
 
-private class FakeCouponCatalog : CouponCatalog {
+private class FakeCouponRepository : CouponRepository {
 	private val byCode = mutableMapOf<String, Coupon>()
 
 	override fun save(coupon: Coupon): Coupon {
