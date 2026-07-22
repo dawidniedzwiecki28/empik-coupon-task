@@ -17,7 +17,7 @@ class CouponEntity(
 	var createdAt: Instant,
 	var maxUses: Int,
 	var currentUses: Int,
-	// Column is CHAR(2); map explicitly so Hibernate schema-validation matches bpchar.
+	// CHAR(2) column — mapped explicitly so Hibernate validation matches.
 	@JdbcTypeCode(SqlTypes.CHAR)
 	var country: String,
 ) {

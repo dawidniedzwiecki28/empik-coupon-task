@@ -8,10 +8,7 @@ import java.time.Clock
 import java.time.Instant
 import java.util.UUID
 
-/**
- * Runs the redemption write in one short transaction. The external geo-IP call happens before
- * this, so no row lock is ever held across it.
- */
+/** The redemption write in one short transaction; the geo-IP call runs before it, so no row lock spans a network call. */
 @Service
 class CouponRedemptionExecutor(
 	private val couponRepository: CouponRepository,
@@ -25,9 +22,8 @@ class CouponRedemptionExecutor(
 		try {
 			lateinit var redeemed: ConsumeOutcome
 			transaction.executeWithoutResult {
-				// Insert first: a repeat user is rejected before the counter is touched, and the
-				// lock order is always redemption-then-coupon. Both failure branches throw, so the
-				// whole transaction rolls back and nothing is persisted unless redemption succeeds.
+				// Insert first: a repeat user is rejected before the counter changes. Both failure
+				// branches throw, so the transaction rolls back — nothing persists unless it succeeds.
 				redemptionRepository.insertRedemption(couponId, userId, Instant.now(clock))
 				if (couponRepository.incrementUsesIfBelowMax(couponId) == 0) {
 					throw LimitReachedException()

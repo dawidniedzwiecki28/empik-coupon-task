@@ -8,8 +8,7 @@ import java.util.UUID
 value class CountryCode private constructor(val value: String) {
 	companion object {
 		fun of(raw: String): CountryCode {
-			// Validate before uppercasing: otherwise a 1-char input like "ß" expands to "SS"
-			// and would slip past the two-letter check.
+			// Validate before uppercasing — else a 1-char input like "ß" expands to "SS" and passes.
 			val trimmed = raw.trim()
 			require(trimmed.length == 2 && trimmed.all { it in 'A'..'Z' || it in 'a'..'z' }) {
 				"Invalid ISO 3166-1 alpha-2 country code: '$raw'"

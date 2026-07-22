@@ -8,10 +8,7 @@ import java.util.UUID
 
 interface CouponRedemptionRepository : JpaRepository<CouponRedemptionEntity, CouponRedemptionId> {
 
-	/**
-	 * Explicit INSERT (not save()/merge, which would upsert an assigned-id entity): a duplicate
-	 * (coupon_id, user_id) hits the primary key and surfaces as a DataIntegrityViolationException.
-	 */
+	/** Explicit INSERT (not save(), which upserts an assigned-id entity) so a duplicate PK surfaces as DataIntegrityViolationException. */
 	@Modifying
 	@Query(
 		value = "INSERT INTO coupon_redemptions (coupon_id, user_id, redeemed_at) VALUES (:couponId, :userId, :redeemedAt)",
@@ -19,6 +16,6 @@ interface CouponRedemptionRepository : JpaRepository<CouponRedemptionEntity, Cou
 	)
 	fun insertRedemption(couponId: UUID, userId: UUID, redeemedAt: Instant)
 
-	/** Scoped count of redemptions for one coupon (avoids whole-table counts in assertions/queries). */
+	/** Scoped per-coupon redemption count (avoids whole-table counts). */
 	fun countByIdCouponId(couponId: UUID): Long
 }
