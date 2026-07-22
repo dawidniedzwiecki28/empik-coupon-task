@@ -1,6 +1,5 @@
 package com.dawidniedzwiecki.coupon.core.api
 
-import java.time.Instant
 import java.util.UUID
 
 /** ISO 3166-1 alpha-2 country code, normalized upper-case; invalid values cannot be constructed. */
@@ -70,29 +69,35 @@ value class IpAddress private constructor(val value: String) {
 	override fun toString(): String = value
 }
 
+/** A coupon code, normalized (trimmed + upper-case) so uniqueness and lookups are case-insensitive. */
+@JvmInline
+value class CouponCode private constructor(val value: String) {
+	companion object {
+		fun of(raw: String): CouponCode {
+			val normalized = raw.trim().uppercase()
+			require(normalized.isNotEmpty() && normalized.length <= 64) { "Invalid coupon code: '$raw'" }
+			return CouponCode(normalized)
+		}
+	}
+
+	override fun toString(): String = value
+}
+
+/** Opaque, caller-supplied user identifier — a UUID we mandate, so it is non-PII. */
+@JvmInline
+value class UserId(val value: UUID)
+
 data class CreateCouponCommand(
-	val code: String,
+	val code: CouponCode,
 	val maxUses: Int,
-	val country: String,
+	val country: CountryCode,
 )
 
-/**
- * [userId] is a caller-supplied UUID (we mandate the format, so it is opaque and non-PII).
- * [clientIp] is resolved at the REST edge and passed in, keeping the core free of the servlet layer.
- */
+/** [clientIp] is resolved at the REST edge and passed in, keeping the core free of the servlet layer. */
 data class RedeemCouponCommand(
-	val code: String,
-	val userId: UUID,
+	val code: CouponCode,
+	val userId: UserId,
 	val clientIp: IpAddress,
-)
-
-data class CouponView(
-	val id: UUID,
-	val code: String,
-	val createdAt: Instant,
-	val maxUses: Int,
-	val currentUses: Int,
-	val country: String,
 )
 
 /**

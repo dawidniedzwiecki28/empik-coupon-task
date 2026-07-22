@@ -1,19 +1,20 @@
 package com.dawidniedzwiecki.coupon.core.domain
 
 import com.dawidniedzwiecki.coupon.core.api.CountryCode
+import com.dawidniedzwiecki.coupon.core.api.CouponCode
 import com.dawidniedzwiecki.coupon.core.api.CouponCodeAlreadyExistsException
 import com.dawidniedzwiecki.coupon.core.api.CreateCouponCommand
 import com.dawidniedzwiecki.coupon.core.api.GeoIpUnavailableException
 import com.dawidniedzwiecki.coupon.core.api.IpAddress
 import com.dawidniedzwiecki.coupon.core.api.RedeemCouponCommand
 import com.dawidniedzwiecki.coupon.core.api.RedemptionResult
+import com.dawidniedzwiecki.coupon.core.api.UserId
 import com.dawidniedzwiecki.coupon.core.infrastructure.geoip.GeoIpResolver
-import com.dawidniedzwiecki.coupon.core.infrastructure.persistence.ConsumeOutcome
 import com.dawidniedzwiecki.coupon.core.infrastructure.persistence.CouponEntity
-import com.dawidniedzwiecki.coupon.core.infrastructure.persistence.CouponRedemptionExecutor
 import com.dawidniedzwiecki.coupon.core.infrastructure.persistence.CouponRepository
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
+import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
@@ -35,32 +36,38 @@ class CouponOperationsImplTest {
 	private val geoIp = FakeGeoIpResolver()
 	private val operations = CouponOperationsImpl(couponRepository, redemptionExecutor, geoIp, clock)
 
-	private val userId: UUID = UUID.randomUUID()
+	private val userId = UserId(UUID.randomUUID())
 	private val clientIp = IpAddress.of("1.1.1.1")
 
 	// --- creation ---
 
 	@Test
-	fun `creates a coupon with a normalized code`() {
+	fun `creates a coupon from the command and returns its id`() {
 		// given
 		whenever(couponRepository.saveAndFlush(any())).thenAnswer { it.getArgument<CouponEntity>(0) }
 
 		// when
-		val view = operations.createCoupon(CreateCouponCommand(code = "  wiosna  ", maxUses = 3, country = "pl"))
+		val id = operations.createCoupon(
+			CreateCouponCommand(code = CouponCode.of("  wiosna  "), maxUses = 3, country = CountryCode.of("pl")),
+		)
 
 		// then
-		assertEquals("WIOSNA", view.code)
-		assertEquals("PL", view.country)
-		assertEquals(3, view.maxUses)
-		assertEquals(0, view.currentUses)
-		assertEquals(Instant.parse("2026-01-01T00:00:00Z"), view.createdAt)
+		val captor = argumentCaptor<CouponEntity>()
+		verify(couponRepository).saveAndFlush(captor.capture())
+		val saved = captor.firstValue
+		assertEquals("WIOSNA", saved.code)
+		assertEquals("PL", saved.country)
+		assertEquals(3, saved.maxUses)
+		assertEquals(0, saved.currentUses)
+		assertEquals(Instant.parse("2026-01-01T00:00:00Z"), saved.createdAt)
+		assertEquals(saved.id, id)
 	}
 
 	@Test
 	fun `rejects non-positive maxUses`() {
 		// expect
 		assertFailsWith<IllegalArgumentException> {
-			operations.createCoupon(CreateCouponCommand(code = "X", maxUses = 0, country = "PL"))
+			operations.createCoupon(CreateCouponCommand(code = CouponCode.of("X"), maxUses = 0, country = CountryCode.of("PL")))
 		}
 	}
 
@@ -71,11 +78,11 @@ class CouponOperationsImplTest {
 
 		// expect
 		assertFailsWith<CouponCodeAlreadyExistsException> {
-			operations.createCoupon(CreateCouponCommand(code = "SUMMER", maxUses = 1, country = "PL"))
+			operations.createCoupon(CreateCouponCommand(code = CouponCode.of("SUMMER"), maxUses = 1, country = CountryCode.of("PL")))
 		}
 	}
 
-	// --- redemption outcomes ---
+	// --- redemption ---
 
 	@Test
 	fun `redeem returns CouponNotFound for unknown code`() {
@@ -83,7 +90,7 @@ class CouponOperationsImplTest {
 		whenever(couponRepository.findByCode("NOPE")).thenReturn(null)
 
 		// when
-		val result = operations.redeem(RedeemCouponCommand(code = "NOPE", userId = userId, clientIp = clientIp))
+		val result = operations.redeem(RedeemCouponCommand(CouponCode.of("NOPE"), userId, clientIp))
 
 		// then
 		assertEquals(RedemptionResult.CouponNotFound, result)
@@ -97,7 +104,7 @@ class CouponOperationsImplTest {
 		geoIp.country = CountryCode.of("DE")
 
 		// when
-		val result = operations.redeem(RedeemCouponCommand("WIOSNA", userId, clientIp))
+		val result = operations.redeem(RedeemCouponCommand(CouponCode.of("WIOSNA"), userId, clientIp))
 
 		// then
 		val notAllowed = assertIs<RedemptionResult.CountryNotAllowed>(result)
@@ -107,59 +114,17 @@ class CouponOperationsImplTest {
 	}
 
 	@Test
-	fun `redeem is case-insensitive on the code`() {
+	fun `redeem looks up the normalized code and returns the executor result`() {
 		// given
 		whenever(couponRepository.findByCode("WIOSNA")).thenReturn(coupon(country = "PL"))
 		geoIp.country = CountryCode.of("PL")
-		whenever(redemptionExecutor.consume(any(), any())).thenReturn(ConsumeOutcome.Redeemed)
+		whenever(redemptionExecutor.consume(any(), any())).thenReturn(RedemptionResult.Success)
 
 		// when
-		val result = operations.redeem(RedeemCouponCommand(code = "wiosna", userId = userId, clientIp = clientIp))
-
-		// then
-		assertIs<RedemptionResult.Success>(result)
-	}
-
-	@Test
-	fun `redeem returns Success`() {
-		// given
-		whenever(couponRepository.findByCode("WIOSNA")).thenReturn(coupon(country = "PL"))
-		geoIp.country = CountryCode.of("PL")
-		whenever(redemptionExecutor.consume(any(), any())).thenReturn(ConsumeOutcome.Redeemed)
-
-		// when
-		val result = operations.redeem(RedeemCouponCommand("WIOSNA", userId, clientIp))
+		val result = operations.redeem(RedeemCouponCommand(CouponCode.of("wiosna"), userId, clientIp))
 
 		// then
 		assertEquals(RedemptionResult.Success, result)
-	}
-
-	@Test
-	fun `redeem maps LimitReached`() {
-		// given
-		whenever(couponRepository.findByCode("WIOSNA")).thenReturn(coupon(country = "PL"))
-		geoIp.country = CountryCode.of("PL")
-		whenever(redemptionExecutor.consume(any(), any())).thenReturn(ConsumeOutcome.LimitReached)
-
-		// when
-		val result = operations.redeem(RedeemCouponCommand("WIOSNA", userId, clientIp))
-
-		// then
-		assertEquals(RedemptionResult.LimitReached, result)
-	}
-
-	@Test
-	fun `redeem maps AlreadyRedeemed`() {
-		// given
-		whenever(couponRepository.findByCode("WIOSNA")).thenReturn(coupon(country = "PL"))
-		geoIp.country = CountryCode.of("PL")
-		whenever(redemptionExecutor.consume(any(), any())).thenReturn(ConsumeOutcome.AlreadyRedeemed)
-
-		// when
-		val result = operations.redeem(RedeemCouponCommand("WIOSNA", userId, clientIp))
-
-		// then
-		assertEquals(RedemptionResult.AlreadyRedeemedByUser, result)
 	}
 
 	@Test
@@ -170,7 +135,7 @@ class CouponOperationsImplTest {
 
 		// when
 		assertFailsWith<GeoIpUnavailableException> {
-			operations.redeem(RedeemCouponCommand("WIOSNA", userId, clientIp))
+			operations.redeem(RedeemCouponCommand(CouponCode.of("WIOSNA"), userId, clientIp))
 		}
 
 		// then

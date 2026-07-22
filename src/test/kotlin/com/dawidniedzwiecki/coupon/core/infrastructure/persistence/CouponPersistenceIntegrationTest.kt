@@ -1,6 +1,8 @@
 package com.dawidniedzwiecki.coupon.core.infrastructure.persistence
 
 import com.dawidniedzwiecki.coupon.TestcontainersConfiguration
+import com.dawidniedzwiecki.coupon.core.api.RedemptionResult
+import com.dawidniedzwiecki.coupon.core.domain.CouponRedemptionExecutor
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -12,7 +14,6 @@ import java.util.UUID
 import java.util.concurrent.Callable
 import java.util.concurrent.Executors
 import kotlin.test.assertEquals
-import kotlin.test.assertIs
 
 @SpringBootTest
 @Import(TestcontainersConfiguration::class)
@@ -64,8 +65,8 @@ class CouponPersistenceIntegrationTest @Autowired constructor(
 		pool.shutdown()
 
 		// then
-		assertEquals(maxUses, outcomes.count { it is ConsumeOutcome.Redeemed })
-		assertEquals(attempts - maxUses, outcomes.count { it is ConsumeOutcome.LimitReached })
+		assertEquals(maxUses, outcomes.count { it == RedemptionResult.Success })
+		assertEquals(attempts - maxUses, outcomes.count { it == RedemptionResult.LimitReached })
 		assertEquals(maxUses, couponRepository.findById(couponId).get().currentUses)
 		assertEquals(maxUses.toLong(), redemptionRepository.countByIdCouponId(couponId))
 	}
@@ -81,8 +82,8 @@ class CouponPersistenceIntegrationTest @Autowired constructor(
 		val second = executor.consume(couponId, user)
 
 		// then
-		assertIs<ConsumeOutcome.Redeemed>(first)
-		assertEquals(ConsumeOutcome.AlreadyRedeemed, second)
+		assertEquals(RedemptionResult.Success, first)
+		assertEquals(RedemptionResult.AlreadyRedeemedByUser, second)
 		assertEquals(1, couponRepository.findById(couponId).get().currentUses)
 		assertEquals(1L, redemptionRepository.countByIdCouponId(couponId))
 	}

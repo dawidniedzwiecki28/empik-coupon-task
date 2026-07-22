@@ -1,6 +1,5 @@
 package com.dawidniedzwiecki.coupon.core.infrastructure.persistence
 
-import com.dawidniedzwiecki.coupon.core.api.CountryCode
 import com.dawidniedzwiecki.coupon.core.api.CreateCouponCommand
 import jakarta.annotation.Nonnull
 import jakarta.persistence.Entity
@@ -30,18 +29,16 @@ class CouponEntity(
 	val country: String,
 ) {
 	companion object {
-		fun normalizeCode(raw: String): String = raw.trim().uppercase()
-
 		/** Builds a new coupon from a create command, enforcing its construction invariants. */
 		fun create(command: CreateCouponCommand, clock: Clock): CouponEntity {
 			require(command.maxUses > 0) { "maxUses must be positive" }
 			return CouponEntity(
 				id = UUID.randomUUID(),
-				code = normalizeCode(command.code),
+				code = command.code.value,
 				createdAt = Instant.now(clock),
 				maxUses = command.maxUses,
 				currentUses = 0,
-				country = CountryCode.of(command.country).value,
+				country = command.country.value,
 			)
 		}
 	}
