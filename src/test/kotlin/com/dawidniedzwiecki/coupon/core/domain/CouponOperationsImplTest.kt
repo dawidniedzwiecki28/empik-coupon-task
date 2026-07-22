@@ -14,23 +14,21 @@ import java.util.UUID
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
-import kotlin.test.assertTrue
 
-class CouponServiceTest {
+class CouponOperationsImplTest {
 
 	private val clock = Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC)
 	private val couponRepository = FakeCouponRepository()
-	private val redemptionStore = FakeRedemptionStore()
+	private val redemptionRepository = FakeCouponRedemptionRepository()
 	private val geoIp = FakeGeoIpResolver()
-	private val events = RecordingEventPublisher()
-	private val service = CouponService(couponRepository, redemptionStore, geoIp, events, clock)
+	private val operations = CouponOperationsImpl(couponRepository, redemptionRepository, geoIp, clock)
 
 	// --- creation ---
 
 	@Test
 	fun `creates a coupon with a normalized code`() {
 		// when
-		val view = service.createCoupon(CreateCouponCommand(code = "  wiosna  ", maxUses = 3, country = "pl"))
+		val view = operations.createCoupon(CreateCouponCommand(code = "  wiosna  ", maxUses = 3, country = "pl"))
 
 		// then
 		assertEquals("WIOSNA", view.code)
@@ -44,18 +42,18 @@ class CouponServiceTest {
 	fun `rejects non-positive maxUses`() {
 		// expect
 		assertFailsWith<IllegalArgumentException> {
-			service.createCoupon(CreateCouponCommand(code = "X", maxUses = 0, country = "PL"))
+			operations.createCoupon(CreateCouponCommand(code = "X", maxUses = 0, country = "PL"))
 		}
 	}
 
 	@Test
 	fun `propagates duplicate code`() {
 		// given
-		service.createCoupon(CreateCouponCommand(code = "SUMMER", maxUses = 1, country = "PL"))
+		operations.createCoupon(CreateCouponCommand(code = "SUMMER", maxUses = 1, country = "PL"))
 
 		// expect
 		assertFailsWith<CouponCodeAlreadyExistsException> {
-			service.createCoupon(CreateCouponCommand(code = "summer", maxUses = 1, country = "PL"))
+			operations.createCoupon(CreateCouponCommand(code = "summer", maxUses = 1, country = "PL"))
 		}
 	}
 
@@ -66,7 +64,7 @@ class CouponServiceTest {
 		// expect
 		assertEquals(
 			RedemptionResult.CouponNotFound,
-			service.redeem(RedeemCouponCommand(code = "NOPE", userId = "u1", clientIp = "1.1.1.1")),
+			operations.redeem(RedeemCouponCommand(code = "NOPE", userId = "u1", clientIp = "1.1.1.1")),
 		)
 	}
 
@@ -77,13 +75,13 @@ class CouponServiceTest {
 		geoIp.country = CountryCode.of("DE")
 
 		// when
-		val result = service.redeem(RedeemCouponCommand("WIOSNA", "u1", "1.1.1.1"))
+		val result = operations.redeem(RedeemCouponCommand("WIOSNA", "u1", "1.1.1.1"))
 
 		// then
 		val notAllowed = assertIs<RedemptionResult.CountryNotAllowed>(result)
 		assertEquals("PL", notAllowed.requiredCountry)
 		assertEquals("DE", notAllowed.callerCountry)
-		assertEquals(0, redemptionStore.consumeCalls, "country rejection must not consume a redemption")
+		assertEquals(0, redemptionRepository.consumeCalls, "country rejection must not consume a redemption")
 	}
 
 	@Test
@@ -91,46 +89,29 @@ class CouponServiceTest {
 		// given
 		givenCoupon(code = "WIOSNA", country = "PL")
 		geoIp.country = CountryCode.of("PL")
-		redemptionStore.outcome = ConsumeOutcome.Redeemed(currentUses = 1, maxUses = 3)
+		redemptionRepository.outcome = ConsumeOutcome.Redeemed(currentUses = 1, maxUses = 3)
 
 		// when
-		val result = service.redeem(RedeemCouponCommand(code = "wiosna", userId = "u1", clientIp = "1.1.1.1"))
+		val result = operations.redeem(RedeemCouponCommand(code = "wiosna", userId = "u1", clientIp = "1.1.1.1"))
 
 		// then
 		assertIs<RedemptionResult.Success>(result)
 	}
 
 	@Test
-	fun `redeem success reports remaining uses and does not publish when not full`() {
+	fun `redeem success reports remaining uses`() {
 		// given
 		givenCoupon(code = "WIOSNA", country = "PL")
 		geoIp.country = CountryCode.of("PL")
-		redemptionStore.outcome = ConsumeOutcome.Redeemed(currentUses = 1, maxUses = 3)
+		redemptionRepository.outcome = ConsumeOutcome.Redeemed(currentUses = 1, maxUses = 3)
 
 		// when
-		val result = service.redeem(RedeemCouponCommand("WIOSNA", "u1", "1.1.1.1"))
+		val result = operations.redeem(RedeemCouponCommand("WIOSNA", "u1", "1.1.1.1"))
 
 		// then
 		val success = assertIs<RedemptionResult.Success>(result)
 		assertEquals(2, success.remainingUses)
 		assertEquals("PL", success.country)
-		assertTrue(events.published.isEmpty())
-	}
-
-	@Test
-	fun `redeem publishes CouponFullyRedeemed on the last use`() {
-		// given
-		givenCoupon(code = "WIOSNA", country = "PL")
-		geoIp.country = CountryCode.of("PL")
-		redemptionStore.outcome = ConsumeOutcome.Redeemed(currentUses = 3, maxUses = 3)
-
-		// when
-		val result = service.redeem(RedeemCouponCommand("WIOSNA", "u1", "1.1.1.1"))
-
-		// then
-		val success = assertIs<RedemptionResult.Success>(result)
-		assertEquals(0, success.remainingUses)
-		assertEquals(listOf<Any>(CouponFullyRedeemed("WIOSNA", "PL")), events.published)
 	}
 
 	@Test
@@ -138,14 +119,13 @@ class CouponServiceTest {
 		// given
 		givenCoupon(code = "WIOSNA", country = "PL")
 		geoIp.country = CountryCode.of("PL")
-		redemptionStore.outcome = ConsumeOutcome.LimitReached
+		redemptionRepository.outcome = ConsumeOutcome.LimitReached
 
 		// when
-		val result = service.redeem(RedeemCouponCommand("WIOSNA", "u1", "1.1.1.1"))
+		val result = operations.redeem(RedeemCouponCommand("WIOSNA", "u1", "1.1.1.1"))
 
 		// then
 		assertEquals(RedemptionResult.LimitReached, result)
-		assertTrue(events.published.isEmpty())
 	}
 
 	@Test
@@ -153,10 +133,10 @@ class CouponServiceTest {
 		// given
 		givenCoupon(code = "WIOSNA", country = "PL")
 		geoIp.country = CountryCode.of("PL")
-		redemptionStore.outcome = ConsumeOutcome.AlreadyRedeemed
+		redemptionRepository.outcome = ConsumeOutcome.AlreadyRedeemed
 
 		// when
-		val result = service.redeem(RedeemCouponCommand("WIOSNA", "u1", "1.1.1.1"))
+		val result = operations.redeem(RedeemCouponCommand("WIOSNA", "u1", "1.1.1.1"))
 
 		// then
 		assertEquals(RedemptionResult.AlreadyRedeemedByUser, result)
@@ -170,13 +150,13 @@ class CouponServiceTest {
 
 		// then
 		assertFailsWith<GeoIpUnavailableException> {
-			service.redeem(RedeemCouponCommand("WIOSNA", "u1", "1.1.1.1"))
+			operations.redeem(RedeemCouponCommand("WIOSNA", "u1", "1.1.1.1"))
 		}
-		assertEquals(0, redemptionStore.consumeCalls)
+		assertEquals(0, redemptionRepository.consumeCalls)
 	}
 
 	private fun givenCoupon(code: String, country: String) {
-		service.createCoupon(CreateCouponCommand(code = code, maxUses = 3, country = country))
+		operations.createCoupon(CreateCouponCommand(code = code, maxUses = 3, country = country))
 	}
 }
 
@@ -192,7 +172,7 @@ private class FakeCouponRepository : CouponRepository {
 	override fun findByCode(normalizedCode: String): Coupon? = byCode[normalizedCode]
 }
 
-private class FakeRedemptionStore : CouponRedemptionStore {
+private class FakeCouponRedemptionRepository : CouponRedemptionRepository {
 	var outcome: ConsumeOutcome = ConsumeOutcome.Redeemed(currentUses = 1, maxUses = 3)
 	var consumeCalls = 0
 
@@ -209,13 +189,5 @@ private class FakeGeoIpResolver : GeoIpResolver {
 	override fun resolveCountry(ip: String): CountryCode {
 		failure?.let { throw it }
 		return country
-	}
-}
-
-private class RecordingEventPublisher : DomainEventPublisher {
-	val published = mutableListOf<Any>()
-
-	override fun publish(event: Any) {
-		published += event
 	}
 }

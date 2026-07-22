@@ -11,12 +11,11 @@ import java.time.Clock
 import java.time.Instant
 import java.util.UUID
 
-/** Stateless; pushes concurrency invariants down to [CouponRedemptionStore], so it scales horizontally. */
-class CouponService(
+/** Stateless; pushes concurrency invariants down to [CouponRedemptionRepository], so it scales horizontally. */
+class CouponOperationsImpl(
 	private val couponRepository: CouponRepository,
-	private val redemptionStore: CouponRedemptionStore,
+	private val redemptionRepository: CouponRedemptionRepository,
 	private val geoIpResolver: GeoIpResolver,
-	private val eventPublisher: DomainEventPublisher,
 	private val clock: Clock,
 ) : CouponOperations {
 
@@ -55,11 +54,8 @@ class CouponService(
 			return RedemptionResult.CountryNotAllowed(coupon.country.value, callerCountry.value)
 		}
 
-		return when (val outcome = redemptionStore.consume(coupon.id, command.userId)) {
+		return when (val outcome = redemptionRepository.consume(coupon.id, command.userId)) {
 			is ConsumeOutcome.Redeemed -> {
-				if (outcome.currentUses == outcome.maxUses) {
-					eventPublisher.publish(CouponFullyRedeemed(coupon.code, coupon.country.value))
-				}
 				log.info(
 					"Redemption succeeded: code={} userId={} country={} uses={}/{}",
 					coupon.code, command.userId, callerCountry, outcome.currentUses, outcome.maxUses,
@@ -73,10 +69,7 @@ class CouponService(
 			}
 
 			ConsumeOutcome.AlreadyRedeemed -> {
-				log.info(
-					"Redemption rejected: outcome=ALREADY_REDEEMED code={} userId={}",
-					coupon.code, command.userId,
-				)
+				log.info("Redemption rejected: outcome=ALREADY_REDEEMED code={} userId={}", coupon.code, command.userId)
 				RedemptionResult.AlreadyRedeemedByUser
 			}
 		}
