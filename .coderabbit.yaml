@@ -1,0 +1,53 @@
+# CodeRabbit configuration — tuned to this service's architecture and concurrency model.
+# The path_instructions teach the reviewer our invariants so it reviews against them.
+language: en-US
+reviews:
+  profile: assertive
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  review_status: true
+  auto_review:
+    enabled: true
+    base_branches:
+      - main
+  path_filters:
+    - "!**/build/**"
+    - "!**/gradle/wrapper/**"
+    - "!gradlew"
+    - "!gradlew.bat"
+  path_instructions:
+    - path: "**/core/**"
+      instructions: >
+        Core is framework-free domain logic. FLAG any import of Spring, JPA/Hibernate
+        (jakarta.persistence), JDBC, or an HTTP client here — those belong behind ports
+        implemented in infrastructure. Expected redemption outcomes (CouponNotFound,
+        LimitReached, CountryNotAllowed, AlreadyRedeemedByUser, Success) must be modelled
+        as the sealed RedemptionResult and returned, NOT thrown as exceptions. Verify the
+        sealed hierarchy is handled exhaustively.
+    - path: "**/rest/**"
+      instructions: >
+        REST edge only. Controllers must depend on the core CouponOperations interface,
+        never a concrete implementation. DTO<->domain mapping stays here — core must not
+        see DTOs. Errors must use RFC 9457 ProblemDetail via @RestControllerAdvice, never
+        a 200 response carrying an error payload.
+    - path: "**/infrastructure/**"
+      instructions: >
+        Adapters implementing core ports. CONCURRENCY-CRITICAL: the usage limit must be an
+        atomic conditional UPDATE (... WHERE current_uses < max_uses) acting on the affected
+        row / returned row. FLAG any read-then-write or check-then-act on the counter, any
+        in-memory / JVM lock (synchronized, ReentrantLock), and any use of COUNT(*) over
+        redemptions to enforce the limit. Per-user uniqueness must be enforced by the
+        UNIQUE(coupon_id, user_id) constraint (insert-and-catch-duplicate), not a
+        SELECT-then-INSERT. The external geo-IP call must NOT happen inside the write
+        transaction — flag any transaction held across the HTTP call.
+    - path: "**/*Test*.*"
+      instructions: >
+        Expect a concurrency test proving that exactly max_uses redemptions succeed under
+        parallel load, and coverage of every RedemptionResult branch. Flag tests that assert
+        on whole-table counts instead of scoped queries.
+  tools:
+    detekt:
+      enabled: true
+chat:
+  auto_reply: true
