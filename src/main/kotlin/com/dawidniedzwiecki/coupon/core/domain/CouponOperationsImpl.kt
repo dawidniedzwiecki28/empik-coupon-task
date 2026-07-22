@@ -57,13 +57,13 @@ class CouponOperationsImpl(
 			return RedemptionResult.CountryNotAllowed(couponCountry.value, callerCountry.value)
 		}
 
-		return when (val outcome = redemptionExecutor.consume(coupon.id, command.userId)) {
-			is ConsumeOutcome.Redeemed -> {
+		return when (redemptionExecutor.consume(coupon.id, command.userId)) {
+			ConsumeOutcome.Redeemed -> {
 				log.info(
-					"Redemption succeeded: code={} userId={} country={} uses={}/{}",
-					coupon.code, command.userId, callerCountry, outcome.currentUses, outcome.maxUses,
+					"Redemption succeeded: code={} userId={} country={}",
+					coupon.code, command.userId, callerCountry,
 				)
-				RedemptionResult.Success(coupon.code, callerCountry.value, outcome.maxUses - outcome.currentUses)
+				RedemptionResult.Success(coupon.code, callerCountry.value)
 			}
 
 			ConsumeOutcome.LimitReached -> {

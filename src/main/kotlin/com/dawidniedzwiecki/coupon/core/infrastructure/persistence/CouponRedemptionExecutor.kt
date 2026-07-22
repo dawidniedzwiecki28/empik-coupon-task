@@ -1,6 +1,5 @@
 package com.dawidniedzwiecki.coupon.core.infrastructure.persistence
 
-import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
@@ -27,16 +26,13 @@ class CouponRedemptionExecutor(
 			redemptionRepository.deleteRedemption(couponId, userId)
 			return ConsumeOutcome.LimitReached
 		}
-		// Just incremented under lock, so the row must exist; a miss means data corruption.
-		val coupon = couponRepository.findByIdOrNull(couponId)
-			?: error("Coupon $couponId not found immediately after a successful increment")
-		return ConsumeOutcome.Redeemed(coupon.currentUses, coupon.maxUses)
+		return ConsumeOutcome.Redeemed
 	}
 }
 
 /** Result of a single [CouponRedemptionExecutor.consume] attempt. */
 sealed interface ConsumeOutcome {
-	data class Redeemed(val currentUses: Int, val maxUses: Int) : ConsumeOutcome
+	data object Redeemed : ConsumeOutcome
 
 	data object LimitReached : ConsumeOutcome
 

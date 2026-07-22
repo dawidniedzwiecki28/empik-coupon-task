@@ -2,6 +2,7 @@ package com.dawidniedzwiecki.coupon.core.infrastructure.persistence
 
 import com.dawidniedzwiecki.coupon.core.api.CountryCode
 import com.dawidniedzwiecki.coupon.core.api.CreateCouponCommand
+import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.Id
 import jakarta.persistence.Table
@@ -15,14 +16,19 @@ import java.util.UUID
 @Table(name = "coupons")
 class CouponEntity(
 	@Id
-	var id: UUID,
-	var code: String,
-	var createdAt: Instant,
-	var maxUses: Int,
-	var currentUses: Int,
+	val id: UUID,
+	@Column(nullable = false)
+	val code: String,
+	@Column(nullable = false)
+	val createdAt: Instant,
+	@Column(nullable = false)
+	val maxUses: Int,
+	@Column(nullable = false)
+	val currentUses: Int,
 	// CHAR(2) column — mapped explicitly so Hibernate validation matches.
+	@Column(nullable = false)
 	@JdbcTypeCode(SqlTypes.CHAR)
-	var country: String,
+	val country: String,
 ) {
 	companion object {
 		fun normalizeCode(raw: String): String = raw.trim().uppercase()

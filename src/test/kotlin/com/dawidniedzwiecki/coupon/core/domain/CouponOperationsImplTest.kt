@@ -111,7 +111,7 @@ class CouponOperationsImplTest {
 		// given
 		whenever(couponRepository.findByCode("WIOSNA")).thenReturn(coupon(country = "PL"))
 		geoIp.country = CountryCode.of("PL")
-		whenever(redemptionExecutor.consume(any(), any())).thenReturn(ConsumeOutcome.Redeemed(1, 3))
+		whenever(redemptionExecutor.consume(any(), any())).thenReturn(ConsumeOutcome.Redeemed)
 
 		// when
 		val result = operations.redeem(RedeemCouponCommand(code = "wiosna", userId = userId, clientIp = clientIp))
@@ -121,18 +121,18 @@ class CouponOperationsImplTest {
 	}
 
 	@Test
-	fun `redeem success reports remaining uses`() {
+	fun `redeem returns Success on the coupon's country`() {
 		// given
 		whenever(couponRepository.findByCode("WIOSNA")).thenReturn(coupon(country = "PL"))
 		geoIp.country = CountryCode.of("PL")
-		whenever(redemptionExecutor.consume(any(), any())).thenReturn(ConsumeOutcome.Redeemed(1, 3))
+		whenever(redemptionExecutor.consume(any(), any())).thenReturn(ConsumeOutcome.Redeemed)
 
 		// when
 		val result = operations.redeem(RedeemCouponCommand("WIOSNA", userId, clientIp))
 
 		// then
 		val success = assertIs<RedemptionResult.Success>(result)
-		assertEquals(2, success.remainingUses)
+		assertEquals("WIOSNA", success.couponCode)
 		assertEquals("PL", success.country)
 	}
 
