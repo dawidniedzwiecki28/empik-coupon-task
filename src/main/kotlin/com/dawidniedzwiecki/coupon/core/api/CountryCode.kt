@@ -1,11 +1,6 @@
 package com.dawidniedzwiecki.coupon.core.api
 
-/**
- * ISO 3166-1 alpha-2 country code, always stored upper-case.
- *
- * A value class rather than a raw [String] so an invalid country cannot exist in the
- * domain and equality is well-defined for the coupon country check.
- */
+/** ISO 3166-1 alpha-2 country code, normalized upper-case; invalid values cannot be constructed. */
 @JvmInline
 value class CountryCode private constructor(val value: String) {
 

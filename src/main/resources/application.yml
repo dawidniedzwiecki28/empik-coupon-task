@@ -7,8 +7,7 @@ spring:
     password: ${DB_PASSWORD:coupon}
   jpa:
     hibernate:
-      # Flyway owns the schema; validate ensures the entity mapping matches it.
-      ddl-auto: validate
+      ddl-auto: validate  # Flyway owns the schema; validate only checks the mapping matches it.
     open-in-view: false
     properties:
       hibernate:
@@ -22,19 +21,6 @@ management:
     web:
       exposure:
         include: health,info,metrics
-  tracing:
-    sampling:
-      # Sample every request in this task so traces are always present in logs.
-      # In production this would be lowered and paired with an OTLP exporter.
-      probability: 1.0
-
-geoip:
-  # Free, no-key IP geolocation. Country is resolved per request and cached per instance.
-  base-url: ${GEOIP_BASE_URL:http://ip-api.com/json}
-  timeout: ${GEOIP_TIMEOUT:PT2S}
-  cache:
-    maximum-size: 50000
-    ttl: PT24H
 
 logging:
   level:

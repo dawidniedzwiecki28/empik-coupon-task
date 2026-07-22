@@ -1,12 +1,10 @@
 CREATE TABLE coupons (
     id           UUID         NOT NULL,
-    -- Stored already normalized (trimmed + upper-case) so the UNIQUE constraint
-    -- enforces case-insensitive uniqueness (WIOSNA == wiosna) at the database level.
+    -- Stored normalized (trim + upper-case) so UNIQUE enforces case-insensitive uniqueness.
     code         VARCHAR(64)  NOT NULL,
     created_at   TIMESTAMPTZ  NOT NULL,
     max_uses     INTEGER      NOT NULL,
     current_uses INTEGER      NOT NULL DEFAULT 0,
-    -- ISO 3166-1 alpha-2, upper-case.
     country      CHAR(2)      NOT NULL,
     CONSTRAINT pk_coupons PRIMARY KEY (id),
     CONSTRAINT uq_coupons_code UNIQUE (code),

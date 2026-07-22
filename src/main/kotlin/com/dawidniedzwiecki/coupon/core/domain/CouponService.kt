@@ -11,11 +11,7 @@ import java.time.Clock
 import java.time.Instant
 import java.util.UUID
 
-/**
- * Orchestrates coupon creation and redemption. Holds no state and pushes every concurrency
- * invariant down to the [CouponRedemptionStore], so it is safe to run on any number of
- * instances.
- */
+/** Stateless; pushes concurrency invariants down to [CouponRedemptionStore], so it scales horizontally. */
 class CouponService(
 	private val catalog: CouponCatalog,
 	private val redemptionStore: CouponRedemptionStore,
@@ -49,9 +45,7 @@ class CouponService(
 			return RedemptionResult.CouponNotFound
 		}
 
-		// Resolve country BEFORE the write transaction so the external call never happens
-		// while holding a row lock (see CouponRedemptionStore). Fail-closed: a failure here
-		// throws GeoIpUnavailableException rather than silently allowing the redemption.
+		// Resolve country before the write tx so the external call never holds a row lock; fail-closed on error.
 		val callerCountry = geoIpResolver.resolveCountry(command.clientIp)
 		if (coupon.country != callerCountry) {
 			log.info(

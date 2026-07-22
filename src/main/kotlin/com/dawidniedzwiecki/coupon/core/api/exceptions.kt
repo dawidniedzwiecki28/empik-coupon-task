@@ -4,11 +4,6 @@ package com.dawidniedzwiecki.coupon.core.api
 class CouponCodeAlreadyExistsException(val code: String) :
 	RuntimeException("A coupon with code '$code' already exists")
 
-/**
- * Thrown when the caller's country cannot be resolved from their IP.
- *
- * This is an exceptional condition (external dependency failure), distinct from the
- * expected [RedemptionResult.CountryNotAllowed] business outcome.
- */
+/** Caller's country could not be resolved from their IP — distinct from the CountryNotAllowed outcome. */
 class GeoIpUnavailableException(val ip: String, cause: Throwable? = null) :
 	RuntimeException("Unable to resolve country for IP '$ip'", cause)
