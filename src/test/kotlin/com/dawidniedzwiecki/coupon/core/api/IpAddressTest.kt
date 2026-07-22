@@ -28,6 +28,12 @@ class IpAddressTest {
 	}
 
 	@Test
+	fun `toString renders the address`() {
+		// expect
+		assertEquals("10.0.0.1", IpAddress.of("10.0.0.1").toString())
+	}
+
+	@Test
 	fun `rejects an out-of-range IPv4 octet`() {
 		// expect
 		assertFailsWith<IllegalArgumentException> { IpAddress.of("203.0.113.999") }

@@ -83,10 +83,17 @@ tasks.jacocoTestReport {
 		xml.required = true
 		html.required = true
 	}
-	// Coverage reflects tested behaviour, not the framework bootstrap.
+	// Coverage reflects tested behaviour, not framework bootstrap or JPA entity data-holders.
 	classDirectories.setFrom(
 		files(classDirectories.files.map {
-			fileTree(it) { exclude("**/CouponApplication*") }
+			fileTree(it) {
+				exclude(
+					"**/CouponApplication*",
+					"**/CouponEntity*",
+					"**/CouponRedemptionEntity*",
+					"**/CouponRedemptionId*",
+				)
+			}
 		}),
 	)
 }
