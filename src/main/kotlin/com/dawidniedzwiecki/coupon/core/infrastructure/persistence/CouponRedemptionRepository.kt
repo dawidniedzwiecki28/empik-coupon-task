@@ -1,4 +1,4 @@
-package com.dawidniedzwiecki.coupon.core.domain
+package com.dawidniedzwiecki.coupon.core.infrastructure.persistence
 
 import java.util.UUID
 

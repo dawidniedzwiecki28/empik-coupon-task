@@ -6,6 +6,10 @@ import com.dawidniedzwiecki.coupon.core.api.CouponView
 import com.dawidniedzwiecki.coupon.core.api.CreateCouponCommand
 import com.dawidniedzwiecki.coupon.core.api.RedeemCouponCommand
 import com.dawidniedzwiecki.coupon.core.api.RedemptionResult
+import com.dawidniedzwiecki.coupon.core.infrastructure.geoip.GeoIpResolver
+import com.dawidniedzwiecki.coupon.core.infrastructure.persistence.ConsumeOutcome
+import com.dawidniedzwiecki.coupon.core.infrastructure.persistence.CouponRedemptionRepository
+import com.dawidniedzwiecki.coupon.core.infrastructure.persistence.CouponRepository
 import org.slf4j.LoggerFactory
 import java.time.Clock
 import java.time.Instant

@@ -1,4 +1,6 @@
-package com.dawidniedzwiecki.coupon.core.domain
+package com.dawidniedzwiecki.coupon.core.infrastructure.persistence
+
+import com.dawidniedzwiecki.coupon.core.domain.Coupon
 
 /** Persistence port for coupon create + lookup. */
 interface CouponRepository {

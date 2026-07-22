@@ -38,3 +38,5 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           title: JaCoCo Coverage
           update-comment: true
+          # Required coverage — the job fails (CI not green) below this.
+          min-coverage-overall: 93

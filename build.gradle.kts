@@ -82,4 +82,10 @@ tasks.jacocoTestReport {
 		xml.required = true
 		html.required = true
 	}
+	// Coverage reflects tested behaviour, not the framework bootstrap.
+	classDirectories.setFrom(
+		files(classDirectories.files.map {
+			fileTree(it) { exclude("**/CouponApplication*") }
+		}),
+	)
 }

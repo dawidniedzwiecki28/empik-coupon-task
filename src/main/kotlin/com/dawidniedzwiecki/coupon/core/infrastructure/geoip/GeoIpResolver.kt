@@ -1,4 +1,4 @@
-package com.dawidniedzwiecki.coupon.core.domain
+package com.dawidniedzwiecki.coupon.core.infrastructure.geoip
 
 import com.dawidniedzwiecki.coupon.core.api.CountryCode
 import com.dawidniedzwiecki.coupon.core.api.IpAddress

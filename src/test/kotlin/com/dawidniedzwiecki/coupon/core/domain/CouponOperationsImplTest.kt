@@ -7,6 +7,10 @@ import com.dawidniedzwiecki.coupon.core.api.GeoIpUnavailableException
 import com.dawidniedzwiecki.coupon.core.api.IpAddress
 import com.dawidniedzwiecki.coupon.core.api.RedeemCouponCommand
 import com.dawidniedzwiecki.coupon.core.api.RedemptionResult
+import com.dawidniedzwiecki.coupon.core.infrastructure.geoip.GeoIpResolver
+import com.dawidniedzwiecki.coupon.core.infrastructure.persistence.ConsumeOutcome
+import com.dawidniedzwiecki.coupon.core.infrastructure.persistence.CouponRedemptionRepository
+import com.dawidniedzwiecki.coupon.core.infrastructure.persistence.CouponRepository
 import org.junit.jupiter.api.Test
 import java.time.Clock
 import java.time.Instant
