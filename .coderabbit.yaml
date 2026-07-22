@@ -19,18 +19,20 @@ reviews:
   path_instructions:
     - path: "**/core/**"
       instructions: >
-        Core is framework-free domain logic. FLAG any import of Spring, JPA/Hibernate
-        (jakarta.persistence), JDBC, or an HTTP client here — those belong behind ports
-        implemented in infrastructure. Expected redemption outcomes (CouponNotFound,
-        LimitReached, CountryNotAllowed, AlreadyRedeemedByUser, Success) must be modelled
-        as the sealed RedemptionResult and returned, NOT thrown as exceptions. Verify the
-        sealed hierarchy is handled exhaustively.
+        `core` is a self-contained module (api / domain / infrastructure). Its ONLY external
+        boundary is `core.api` (the CouponOperations interface + DTOs) — that package must not
+        expose JPA entities or import Spring Web. WITHIN the module, domain and infrastructure
+        may use Spring Data repositories, @Service, @Transactional and JPA directly — that is the
+        intended convention, not a violation. Expected redemption outcomes (CouponNotFound,
+        LimitReached, CountryNotAllowed, AlreadyRedeemedByUser, Success) must be modelled as the
+        sealed RedemptionResult and returned, NOT thrown. Flag business logic placed in the REST
+        layer, or JPA entities leaking through core.api.
     - path: "**/rest/**"
       instructions: >
-        REST edge only. Controllers must depend on the core CouponOperations interface,
-        never a concrete implementation. DTO<->domain mapping stays here — core must not
-        see DTOs. Errors must use RFC 9457 ProblemDetail via @RestControllerAdvice, never
-        a 200 response carrying an error payload.
+        REST edge only. Controllers depend on the core CouponOperations interface, never a
+        concrete implementation. Map core.api DTOs (CouponView, RedemptionResult) to API/response
+        models here; the core must not import REST/servlet types. Errors must use RFC 9457
+        ProblemDetail via @RestControllerAdvice, never a 200 response carrying an error payload.
     - path: "**/infrastructure/**"
       instructions: >
         Adapters implementing core ports. CONCURRENCY-CRITICAL: the usage limit must be an

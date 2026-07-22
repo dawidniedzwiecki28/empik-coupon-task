@@ -23,7 +23,8 @@ class CouponRedemptionExecutor(
 
 	fun consume(couponId: UUID, userId: UUID): ConsumeOutcome =
 		try {
-			transaction.execute {
+			lateinit var redeemed: ConsumeOutcome
+			transaction.executeWithoutResult {
 				// Insert first: a repeat user is rejected before the counter is touched, and the
 				// lock order is always redemption-then-coupon. Both failure branches throw, so the
 				// whole transaction rolls back and nothing is persisted unless redemption succeeds.
@@ -32,8 +33,9 @@ class CouponRedemptionExecutor(
 					throw LimitReachedException()
 				}
 				val coupon = couponRepository.findById(couponId).orElseThrow()
-				ConsumeOutcome.Redeemed(coupon.currentUses, coupon.maxUses)
+				redeemed = ConsumeOutcome.Redeemed(coupon.currentUses, coupon.maxUses)
 			}
+			redeemed
 		} catch (_: DataIntegrityViolationException) {
 			ConsumeOutcome.AlreadyRedeemed
 		} catch (_: LimitReachedException) {

@@ -33,7 +33,7 @@ class CouponPersistenceIntegrationTest @Autowired constructor(
 		// given
 		seedCoupon(code = "WIOSNA", maxUses = 3)
 
-		// then
+		// expect
 		assertEquals("WIOSNA", couponRepository.findByCode("WIOSNA")?.code)
 		assertEquals(null, couponRepository.findByCode("wiosna"))
 	}
