@@ -1,3 +1,8 @@
+import org.gradle.api.tasks.testing.TestDescriptor
+import org.gradle.api.tasks.testing.TestResult
+import org.gradle.api.tasks.testing.logging.TestExceptionFormat
+import org.gradle.kotlin.dsl.KotlinClosure2
+
 plugins {
 	kotlin("jvm") version "2.3.21"
 	kotlin("plugin.spring") version "2.3.21"
@@ -57,6 +62,14 @@ allOpen {
 tasks.withType<Test> {
 	useJUnitPlatform()
 	testLogging {
-		events("passed", "skipped", "failed")
+		events("failed")
+		exceptionFormat = TestExceptionFormat.FULL
 	}
+	// One compact line per test, with its duration.
+	afterTest(
+		KotlinClosure2({ desc: TestDescriptor, result: TestResult ->
+			val cls = desc.className?.substringAfterLast('.')
+			println("  ${result.resultType} $cls > ${desc.displayName} (${result.endTime - result.startTime} ms)")
+		}),
+	)
 }
