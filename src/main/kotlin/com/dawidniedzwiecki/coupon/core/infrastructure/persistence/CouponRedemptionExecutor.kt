@@ -1,10 +1,8 @@
 package com.dawidniedzwiecki.coupon.core.infrastructure.persistence
 
-import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
-import org.springframework.transaction.PlatformTransactionManager
-import org.springframework.transaction.support.TransactionTemplate
+import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
 import java.time.Instant
 import java.util.UUID
@@ -14,35 +12,27 @@ import java.util.UUID
 class CouponRedemptionExecutor(
 	private val couponRepository: CouponRepository,
 	private val redemptionRepository: CouponRedemptionRepository,
-	transactionManager: PlatformTransactionManager,
 	private val clock: Clock,
 ) {
-	private val transaction = TransactionTemplate(transactionManager)
 
-	fun consume(couponId: UUID, userId: UUID): ConsumeOutcome =
-		try {
-			lateinit var redeemed: ConsumeOutcome
-			transaction.executeWithoutResult {
-				// Insert first: a repeat user is rejected before the counter changes. Both failure
-				// branches throw, so the transaction rolls back — nothing persists unless it succeeds.
-				redemptionRepository.insertRedemption(couponId, userId, Instant.now(clock))
-				if (couponRepository.incrementUsesIfBelowMax(couponId) == 0) {
-					throw LimitReachedException()
-				}
-				// Just incremented under lock, so the row must exist; a miss means data corruption.
-				val coupon = couponRepository.findByIdOrNull(couponId)
-					?: error("Coupon $couponId not found immediately after a successful increment")
-				redeemed = ConsumeOutcome.Redeemed(coupon.currentUses, coupon.maxUses)
-			}
-			redeemed
-		} catch (_: DataIntegrityViolationException) {
-			ConsumeOutcome.AlreadyRedeemed
-		} catch (_: LimitReachedException) {
-			ConsumeOutcome.LimitReached
+	@Transactional
+	fun consume(couponId: UUID, userId: UUID): ConsumeOutcome {
+		// Insert-first (ON CONFLICT DO NOTHING): a repeat user is rejected before the counter changes,
+		// and it reports no rows rather than throwing.
+		if (redemptionRepository.insertIfAbsent(couponId, userId, Instant.now(clock)) == 0) {
+			return ConsumeOutcome.AlreadyRedeemed
 		}
+		if (couponRepository.incrementUsesIfBelowMax(couponId) == 0) {
+			// Coupon is full — undo the tentative redemption within the same transaction.
+			redemptionRepository.deleteRedemption(couponId, userId)
+			return ConsumeOutcome.LimitReached
+		}
+		// Just incremented under lock, so the row must exist; a miss means data corruption.
+		val coupon = couponRepository.findByIdOrNull(couponId)
+			?: error("Coupon $couponId not found immediately after a successful increment")
+		return ConsumeOutcome.Redeemed(coupon.currentUses, coupon.maxUses)
+	}
 }
-
-private class LimitReachedException : RuntimeException()
 
 /** Result of a single [CouponRedemptionExecutor.consume] attempt. */
 sealed interface ConsumeOutcome {

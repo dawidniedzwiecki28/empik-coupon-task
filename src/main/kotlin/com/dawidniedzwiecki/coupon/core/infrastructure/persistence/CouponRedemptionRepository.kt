@@ -8,13 +8,21 @@ import java.util.UUID
 
 interface CouponRedemptionRepository : JpaRepository<CouponRedemptionEntity, CouponRedemptionId> {
 
-	/** Explicit INSERT (not save(), which upserts an assigned-id entity) so a duplicate PK surfaces as DataIntegrityViolationException. */
+	/** Insert-if-absent: returns 1 when inserted, 0 when this (coupon_id, user_id) already exists — no exception. */
 	@Modifying
 	@Query(
-		value = "INSERT INTO coupon_redemptions (coupon_id, user_id, redeemed_at) VALUES (:couponId, :userId, :redeemedAt)",
+		value = "INSERT INTO coupon_redemptions (coupon_id, user_id, redeemed_at) VALUES (:couponId, :userId, :redeemedAt) " +
+			"ON CONFLICT (coupon_id, user_id) DO NOTHING",
 		nativeQuery = true,
 	)
-	fun insertRedemption(couponId: UUID, userId: UUID, redeemedAt: Instant)
+	fun insertIfAbsent(couponId: UUID, userId: UUID, redeemedAt: Instant): Int
+
+	@Modifying
+	@Query(
+		value = "DELETE FROM coupon_redemptions WHERE coupon_id = :couponId AND user_id = :userId",
+		nativeQuery = true,
+	)
+	fun deleteRedemption(couponId: UUID, userId: UUID)
 
 	/** Scoped per-coupon redemption count (avoids whole-table counts). */
 	fun countByIdCouponId(couponId: UUID): Long
