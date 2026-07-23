@@ -247,4 +247,4 @@ All settings have working defaults. The first group are environment variables re
 ## Tech
 
 Kotlin, Spring Boot, PostgreSQL, Flyway, Spring Data JPA, MaxMind `geoip2` (DB-IP data), springdoc
-OpenAPI, JUnit 5, Testcontainers, mockito-kotlin, ArchUnit, detekt. Built with Gradle, targeting Java 21.
+OpenAPI, JUnit 5, Testcontainers, MockK, ArchUnit, detekt. Built with Gradle, targeting Java 21.
