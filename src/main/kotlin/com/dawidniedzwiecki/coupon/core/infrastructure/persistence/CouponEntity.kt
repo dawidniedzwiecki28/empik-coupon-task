@@ -1,8 +1,11 @@
 package com.dawidniedzwiecki.coupon.core.infrastructure.persistence
 
 import com.dawidniedzwiecki.coupon.core.api.CreateCouponCommand
+import com.dawidniedzwiecki.coupon.core.api.InvalidValueException
 import jakarta.annotation.Nonnull
 import jakarta.persistence.Entity
+import jakarta.persistence.GeneratedValue
+import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.Table
 import org.hibernate.annotations.JdbcTypeCode
@@ -14,9 +17,12 @@ import java.util.UUID
 @Entity
 @Table(name = "coupons")
 class CouponEntity(
+	// Provider-generated: the id is null until persist, so Spring Data's isNew() picks persist() over
+	// merge() — a plain INSERT with no SELECT-before-INSERT round trip. Non-null once persisted or loaded;
+	// read it through [persistedId].
 	@Id
-	@Nonnull
-	val id: UUID,
+	@GeneratedValue(strategy = GenerationType.UUID)
+	val id: UUID? = null,
 	@Nonnull
 	val code: String,
 	@Nonnull
@@ -28,14 +34,16 @@ class CouponEntity(
 	@JdbcTypeCode(SqlTypes.CHAR)
 	val country: String,
 ) {
+	/** The id of a persisted/loaded entity. The null case is unreachable here (only a pre-persist entity has none). */
+	val persistedId: UUID get() = requireNotNull(id) { "entity has not been persisted" }
+
 	companion object {
 		/** Unique constraint on `code`; must match `uq_coupons_code` in V1__create_coupons.sql. */
 		const val UNIQUE_CODE_CONSTRAINT = "uq_coupons_code"
 
 		fun create(command: CreateCouponCommand, clock: Clock): CouponEntity {
-			require(command.maxUses > 0) { "maxUses must be positive" }
+			if (command.maxUses <= 0) throw InvalidValueException("maxUses must be positive")
 			return CouponEntity(
-				id = UUID.randomUUID(),
 				code = command.code.value,
 				createdAt = Instant.now(clock),
 				maxUses = command.maxUses,

@@ -45,39 +45,58 @@ Interactive docs (when running): **Swagger UI** at `/swagger-ui.html`, OpenAPI d
 ### Create a coupon — `POST /api/coupons`
 
 ```bash
-curl -X POST localhost:8080/api/coupons \
+curl -i -X POST localhost:8080/api/coupons \
   -H 'Content-Type: application/json' \
-  -d '{"code":"WIOSNA","maxUses":100,"country":"PL"}'
-# 201 Created  →  {"couponId":"3f9a…"}
+  -d '{"code":"WIOSNA","maxUses":100,"country":"US"}'
+# 201 Created
+# Location: /api/coupons/3f9a…
+# {"couponId":"3f9a…"}
+```
+
+### Read a coupon — `GET /api/coupons/{id}`
+
+```bash
+curl localhost:8080/api/coupons/3f9a…
+# 200 OK  →  {"id":"3f9a…","code":"WIOSNA","country":"US","maxUses":100,"currentUses":0,"createdAt":"…"}
+# 404 with an application/problem+json body if no coupon has that id
 ```
 
 ### Redeem a coupon — `POST /api/coupons/redemptions`
 
+The caller's country is resolved from their IP and must match the coupon's. On `localhost` the
+connection address is loopback, which maps to no country, so a redemption **fails closed** (`422`) —
+that is by design, not a bug. To exercise a successful redemption locally, start the app with
+`COUPON_REST_TRUST_CLIENT_IP=true` and supply a public address via `X-Forwarded-For` (see
+[Client IP & trust](#client-ip--trust)); `8.8.8.8` geolocates to the US in the bundled database, so it
+matches the `US` coupon created above:
+
 ```bash
 curl -X POST localhost:8080/api/coupons/redemptions \
   -H 'Content-Type: application/json' \
-  -d '{"code":"WIOSNA","userId":"6b1e…"}'
+  -H 'X-Forwarded-For: 8.8.8.8' \
+  -d '{"code":"WIOSNA","userId":"6b1e5a2c-0000-4000-8000-000000000001"}'
 # 200 OK on success
 ```
 
-`userId` is any client-supplied UUID (see [Limitations](#limitations)). The caller's IP is taken
-from the connection by default; see [Client IP & trust](#client-ip--trust).
+`userId` is any client-supplied UUID (see [Limitations](#limitations)). Without the trust flag the IP
+is taken from the connection; see [Client IP & trust](#client-ip--trust).
 
 ### Outcomes
 
-Each outcome has a documented HTTP status. The two conflict cases share `409`, distinguished by the
-`detail` of the [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) `application/problem+json` body
-that every rejection carries.
+Each outcome has a documented HTTP status. Every rejection carries an
+[RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) `application/problem+json` body, and each kind has a
+distinct `type` URI (e.g. `urn:coupon:limit-reached`) — so the two conflict cases that share `409` are
+told apart by a machine on `type`, not by parsing `detail`.
 
-| Outcome                  | Status | Notes                                                |
-|--------------------------|--------|------------------------------------------------------|
-| Redeemed                 | `200`  | no body                                              |
-| Coupon not found         | `404`  |                                                      |
-| Usage limit reached      | `409`  |                                                      |
-| Already redeemed by user | `409`  |                                                      |
-| Country not allowed      | `403`  | body includes `requiredCountry` and `callerCountry`  |
-| Caller country unknown   | `503`  | geo-IP dependency couldn't resolve the country — fail-closed |
-| Malformed request        | `400`  |                                                      |
+| Outcome                  | Status | `type`                       | Notes                                             |
+|--------------------------|--------|------------------------------|---------------------------------------------------|
+| Redeemed                 | `200`  | —                            | no body                                           |
+| Coupon not found         | `404`  | `urn:coupon:coupon-not-found`|                                                   |
+| Usage limit reached      | `409`  | `urn:coupon:limit-reached`   |                                                   |
+| Already redeemed by user | `409`  | `urn:coupon:already-redeemed`|                                                   |
+| Country not allowed      | `403`  | `urn:coupon:country-not-allowed` | body includes `requiredCountry` and `callerCountry` |
+| Caller country unknown   | `422`  | `urn:coupon:country-unresolved`  | the IP can't be mapped to a country — fail-closed, not a server outage |
+| Malformed request        | `400`  | `urn:coupon:invalid-request` |                                                   |
 
 ## Architecture
 
@@ -97,8 +116,10 @@ config           Spring wiring
 - **Pragmatic persistence, not hexagonal ceremony.** Spring Data repositories (`CouponRepository`,
   `CouponRedemptionRepository`) are used directly with the JPA entity as the in-module model. There
   is no separate port/adapter/pure-domain triple: for a single-datastore service it adds indirection
-  without value. The geo-IP resolver follows the same principle — one concrete class, no interface,
-  since its only other "implementation" would be a test double.
+  without value. The geo-IP resolver, by contrast, **is** a port (`GeoIpResolver` interface +
+  `DatabaseGeoIpResolver` adapter): it fronts an external, swappable data source — the embedded
+  database today, a hosted provider tomorrow — and is the one dependency worth faking in tests, so the
+  seam earns its keep where the repositories' would not.
 - **Value objects validate at construction** (`CouponCode`, `CountryCode`, `IpAddress`, `UserId`), so
   an invalid value can't travel inward. `userId` is a mandated UUID the service treats as an opaque
   identifier — it derives nothing from it and stores no other user data.
@@ -153,7 +174,7 @@ quota**. This deletes an entire class of production problems (rate limits, laten
 breakers) that a hosted geo-IP API would introduce, and is why holding the transaction across the
 lookup is safe.
 
-- **Fail-closed:** if the IP can't be mapped to a country, the redemption is rejected (`503`), never
+- **Fail-closed:** if the IP can't be mapped to a country, the redemption is rejected (`422`), never
   allowed on an unverified country.
 - **Bundled snapshot:** `src/main/resources/geoip/dbip-country-lite.mmdb.gz` (~4 MB) ships with the
   app, so it runs offline out of the box. Attribution is in [`NOTICE`](./NOTICE) (DB-IP Lite is
@@ -168,10 +189,13 @@ lookup is safe.
 
 The country check is only as trustworthy as the address it runs on. By default the service uses the
 **transport remote address** only. The `X-Forwarded-For` header is honored **only** when
-`coupon.rest.trust-client-ip=true` — which is safe solely behind an ingress/load balancer that
-overwrites that header. Enabling it on a directly exposed service would let a caller spoof their
-country. This reflects the reality that a scalable deployment sits behind a load balancer, where the
-remote address is the balancer's, not the client's.
+`coupon.rest.trust-client-ip=true`. When trusted, the service takes the **leftmost** `X-Forwarded-For`
+entry as the client — which is correct **only** behind an ingress/load balancer that **replaces** the
+header with the real client address. Behind one that merely **appends** to a client-supplied header,
+that leftmost entry is attacker-controlled, so enabling trust there would let a caller spoof their
+country. Enable it solely behind a balancer you know overwrites the header; on a directly exposed
+service, leave it off. This reflects the reality that a scalable deployment sits behind a load
+balancer, where the remote address is the balancer's, not the client's.
 
 ## Scaling further
 
@@ -194,7 +218,7 @@ The design is deliberately partition-ready without building it now:
 A pyramid — each concern tested at the layer that owns it, without duplication (mocking uses MockK):
 
 - **Unit** — the value objects (`CountryCodeTest`, `CouponCodeTest`, `IpAddressTest`),
-  `ClientIpResolverTest`, and the geo-IP tests (`GeoIpResolverTest`, `GeoIpDatabaseTest`,
+  `ClientIpResolverTest`, and the geo-IP tests (`DatabaseGeoIpResolverTest`, `GeoIpDatabaseTest`,
   `GeoIpDatabaseUpdaterTest`).
 - **Web slice** — `CouponControllerTest` (`@WebMvcTest`) maps every outcome, edge case and validation
   error to the right HTTP status/body, with the service mocked.
@@ -204,7 +228,9 @@ A pyramid — each concern tested at the layer that owns it, without duplication
 - **End-to-end** — `CouponE2eTest` checks the main flows through the full stack (HTTP → domain →
   PostgreSQL) plus `OpenApiIntegrationTest` for the generated docs.
 - **Architecture** — `ArchitectureTest` (ArchUnit) enforces the layer boundaries above.
-- Coverage is gated in CI at **93%** (JaCoCo), excluding framework wiring and data holders.
+- Coverage is a **build-failing gate at 93%**: `jacocoTestCoverageVerification` runs as part of
+  `check`, so `./gradlew build` fails below **93%** line coverage (excluding framework wiring and data
+  holders); CI additionally posts the number on each PR.
 
 ### Live acceptance & load check
 

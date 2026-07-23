@@ -97,26 +97,43 @@ tasks.withType<Test> {
 	finalizedBy(tasks.jacocoTestReport)
 }
 
+// Coverage reflects tested behaviour, not framework bootstrap or JPA entity data-holders.
+val coverageExclusions = listOf(
+	"**/CouponApplication*",
+	"**/CouponEntity*",
+	"**/CouponRedemptionEntity*",
+	"**/CouponRedemptionId*",
+	"**/config/**",
+	"**/GeoIpProperties*",
+	"**/rest/dto/**",
+)
+
+fun ConfigurableFileCollection.excludingNonBehaviour() =
+	setFrom(files(files.map { fileTree(it) { exclude(coverageExclusions) } }))
+
 tasks.jacocoTestReport {
 	dependsOn(tasks.test)
 	reports {
 		xml.required = true
 		html.required = true
 	}
-	// Coverage reflects tested behaviour, not framework bootstrap or JPA entity data-holders.
-	classDirectories.setFrom(
-		files(classDirectories.files.map {
-			fileTree(it) {
-				exclude(
-					"**/CouponApplication*",
-					"**/CouponEntity*",
-					"**/CouponRedemptionEntity*",
-					"**/CouponRedemptionId*",
-					"**/config/**",
-					"**/GeoIpProperties*",
-					"**/rest/dto/**",
-				)
+	classDirectories.excludingNonBehaviour()
+}
+
+// A build-failing coverage gate (not just a CI report): `check` runs it, so `./gradlew build` fails below threshold.
+tasks.jacocoTestCoverageVerification {
+	dependsOn(tasks.test)
+	classDirectories.excludingNonBehaviour()
+	violationRules {
+		rule {
+			limit {
+				counter = "LINE"
+				minimum = "0.93".toBigDecimal()
 			}
-		}),
-	)
+		}
+	}
+}
+
+tasks.check {
+	dependsOn(tasks.jacocoTestCoverageVerification)
 }

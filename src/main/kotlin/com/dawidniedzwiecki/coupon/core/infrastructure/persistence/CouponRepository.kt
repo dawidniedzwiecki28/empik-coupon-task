@@ -10,7 +10,9 @@ interface CouponRepository : JpaRepository<CouponEntity, UUID> {
 	fun findByCode(code: String): CouponEntity?
 
 	/** Atomic and capped: returns 1 while below max_uses, 0 once it is reached. */
-	@Modifying
+	// clearAutomatically: this native UPDATE bypasses the persistence context, so evict any now-stale
+	// managed coupon rather than let a later read in the same transaction see the pre-increment count.
+	@Modifying(clearAutomatically = true)
 	@Query(
 		value = "UPDATE coupons SET current_uses = current_uses + 1 WHERE id = :id AND current_uses < max_uses",
 		nativeQuery = true,

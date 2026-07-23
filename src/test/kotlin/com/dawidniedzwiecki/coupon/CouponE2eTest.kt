@@ -12,6 +12,7 @@ import org.springframework.context.annotation.Import
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.ResultActionsDsl
+import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 import java.util.UUID
 import kotlin.test.assertEquals
@@ -44,6 +45,22 @@ class CouponE2eTest @Autowired constructor(
 	}
 
 	@Test
+	fun `creates then reads a coupon back via the Location header`() {
+		// given
+		val location = createCoupon("READBACK")
+			.andExpect { status { isCreated() } }
+			.andReturn().response.getHeader("Location")!!
+
+		// expect — GET on the advertised location returns the coupon's current state
+		mockMvc.get(location).andExpect {
+			status { isOk() }
+			jsonPath("$.code") { value("READBACK") }
+			jsonPath("$.country") { value("PL") }
+			jsonPath("$.currentUses") { value(0) }
+		}
+	}
+
+	@Test
 	fun `redeems a coupon and increments its usage`() {
 		// given
 		createCoupon("WIOSNA").andExpect { status { isCreated() } }
@@ -66,6 +83,15 @@ class CouponE2eTest @Autowired constructor(
 
 		// then — the second attempt is rejected
 		redeem("WIOSNA", user).andExpect { status { isConflict() } }
+	}
+
+	@Test
+	fun `redeems a coupon with a differently-cased code`() {
+		// given
+		createCoupon("WIOSNA").andExpect { status { isCreated() } }
+
+		// expect — code matching is case-insensitive end to end
+		redeem("wiosna", UUID.randomUUID()).andExpect { status { isOk() } }
 	}
 
 	@Test

@@ -13,9 +13,9 @@ import java.io.IOException
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
-class GeoIpResolverTest {
+class DatabaseGeoIpResolverTest {
 
-	private val resolver = GeoIpResolver(GeoIpDatabase(GeoIpTestFixtures.bundledReader()))
+	private val resolver = DatabaseGeoIpResolver(GeoIpDatabase(GeoIpTestFixtures.bundledReader()))
 
 	@Test
 	fun `resolves the country of a public IP from the bundled database`() {
@@ -49,5 +49,5 @@ class GeoIpResolverTest {
 		assertFailsWith<GeoIpUnavailableException> { resolverBackedBy(reader).resolveCountry(IpAddress.of("8.8.8.8")) }
 	}
 
-	private fun resolverBackedBy(reader: DatabaseReader) = GeoIpResolver(GeoIpDatabase(reader))
+	private fun resolverBackedBy(reader: DatabaseReader) = DatabaseGeoIpResolver(GeoIpDatabase(reader))
 }
