@@ -15,8 +15,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Name pinned to "build" to match the required status check in main's branch protection —
+  # renaming it would leave that required check permanently pending and block every merge.
   build:
-    name: Build & test
+    name: build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
