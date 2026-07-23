@@ -13,6 +13,7 @@ import com.dawidniedzwiecki.coupon.core.infrastructure.geoip.GeoIpDatabase
 import com.dawidniedzwiecki.coupon.core.infrastructure.geoip.GeoIpResolver
 import com.dawidniedzwiecki.coupon.core.infrastructure.geoip.GeoIpTestFixtures
 import com.dawidniedzwiecki.coupon.core.infrastructure.persistence.CouponEntity
+import com.dawidniedzwiecki.coupon.core.infrastructure.persistence.CouponRedemptionRepository
 import com.dawidniedzwiecki.coupon.core.infrastructure.persistence.CouponRepository
 import org.hibernate.exception.ConstraintViolationException
 import org.junit.jupiter.api.Test
@@ -36,9 +37,9 @@ class CouponOperationsImplTest {
 
 	private val clock = Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC)
 	private val couponRepository = mock<CouponRepository>()
-	private val redemptionExecutor = mock<CouponRedemptionExecutor>()
+	private val redemptionRepository = mock<CouponRedemptionRepository>()
 	private val geoIp = FakeGeoIpResolver()
-	private val operations = CouponOperationsImpl(couponRepository, redemptionExecutor, geoIp, clock)
+	private val operations = CouponOperationsImpl(couponRepository, redemptionRepository, geoIp, clock)
 
 	private val userId = UserId(UUID.randomUUID())
 	private val clientIp = IpAddress.of("1.1.1.1")
@@ -109,9 +110,9 @@ class CouponOperationsImplTest {
 		// when
 		val result = operations.redeem(RedeemCouponCommand(CouponCode.of("NOPE"), userId, clientIp))
 
-		// then
+		// then — rejected before any write, so no transaction is opened
 		assertEquals(RedemptionResult.CouponNotFound, result)
-		verify(redemptionExecutor, never()).consume(any(), any())
+		verify(redemptionRepository, never()).insertIfAbsent(any(), any(), any())
 	}
 
 	@Test
@@ -127,21 +128,53 @@ class CouponOperationsImplTest {
 		val notAllowed = assertIs<RedemptionResult.CountryNotAllowed>(result)
 		assertEquals("PL", notAllowed.requiredCountry)
 		assertEquals("DE", notAllowed.callerCountry)
-		verify(redemptionExecutor, never()).consume(any(), any())
+		verify(redemptionRepository, never()).insertIfAbsent(any(), any(), any())
 	}
 
 	@Test
-	fun `redeem looks up the normalized code and returns the executor result`() {
+	fun `redeem records the redemption and returns Success on the normalized code`() {
 		// given
 		whenever(couponRepository.findByCode("WIOSNA")).thenReturn(coupon(country = "PL"))
 		geoIp.country = CountryCode.of("PL")
-		whenever(redemptionExecutor.consume(any(), any())).thenReturn(RedemptionResult.Success)
+		whenever(redemptionRepository.insertIfAbsent(any(), any(), any())).thenReturn(1)
+		whenever(couponRepository.incrementUsesIfBelowMax(any())).thenReturn(1)
 
 		// when
 		val result = operations.redeem(RedeemCouponCommand(CouponCode.of("wiosna"), userId, clientIp))
 
 		// then
 		assertEquals(RedemptionResult.Success, result)
+		verify(couponRepository).findByCode("WIOSNA")
+	}
+
+	@Test
+	fun `redeem returns AlreadyRedeemedByUser without touching the counter`() {
+		// given
+		whenever(couponRepository.findByCode("WIOSNA")).thenReturn(coupon(country = "PL"))
+		whenever(redemptionRepository.insertIfAbsent(any(), any(), any())).thenReturn(0)
+
+		// when
+		val result = operations.redeem(RedeemCouponCommand(CouponCode.of("WIOSNA"), userId, clientIp))
+
+		// then
+		assertEquals(RedemptionResult.AlreadyRedeemedByUser, result)
+		verify(couponRepository, never()).incrementUsesIfBelowMax(any())
+	}
+
+	@Test
+	fun `redeem undoes the tentative redemption and returns LimitReached when full`() {
+		// given
+		val coupon = coupon(country = "PL")
+		whenever(couponRepository.findByCode("WIOSNA")).thenReturn(coupon)
+		whenever(redemptionRepository.insertIfAbsent(any(), any(), any())).thenReturn(1)
+		whenever(couponRepository.incrementUsesIfBelowMax(coupon.id)).thenReturn(0)
+
+		// when
+		val result = operations.redeem(RedeemCouponCommand(CouponCode.of("WIOSNA"), userId, clientIp))
+
+		// then
+		assertEquals(RedemptionResult.LimitReached, result)
+		verify(redemptionRepository).deleteRedemption(coupon.id, userId.value)
 	}
 
 	@Test
@@ -156,7 +189,7 @@ class CouponOperationsImplTest {
 		}
 
 		// then
-		verify(redemptionExecutor, never()).consume(any(), any())
+		verify(redemptionRepository, never()).insertIfAbsent(any(), any(), any())
 	}
 
 	private fun coupon(country: String) =
