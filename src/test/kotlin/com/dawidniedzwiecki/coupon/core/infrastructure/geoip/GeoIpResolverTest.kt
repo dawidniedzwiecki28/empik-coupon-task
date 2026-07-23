@@ -6,11 +6,9 @@ import com.dawidniedzwiecki.coupon.core.api.IpAddress
 import com.maxmind.geoip2.DatabaseReader
 import com.maxmind.geoip2.model.CountryResponse
 import com.maxmind.geoip2.record.Country
+import io.mockk.every
+import io.mockk.mockk
 import org.junit.jupiter.api.Test
-import org.mockito.kotlin.any
-import org.mockito.kotlin.doReturn
-import org.mockito.kotlin.doThrow
-import org.mockito.kotlin.mock
 import java.io.IOException
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -34,7 +32,7 @@ class GeoIpResolverTest {
 	@Test
 	fun `fails closed when the lookup raises an IO error`() {
 		// given
-		val reader = mock<DatabaseReader> { on { country(any()) } doThrow IOException("read failed") }
+		val reader = mockk<DatabaseReader> { every { country(any()) } throws IOException("read failed") }
 
 		// expect
 		assertFailsWith<GeoIpUnavailableException> { resolverBackedBy(reader).resolveCountry(IpAddress.of("8.8.8.8")) }
@@ -43,9 +41,9 @@ class GeoIpResolverTest {
 	@Test
 	fun `fails closed when the address maps to no country code`() {
 		// given
-		val country = mock<Country> { on { isoCode() } doReturn null }
-		val response = mock<CountryResponse> { on { country() } doReturn country }
-		val reader = mock<DatabaseReader> { on { country(any()) } doReturn response }
+		val country = mockk<Country> { every { isoCode() } returns null }
+		val response = mockk<CountryResponse> { every { country() } returns country }
+		val reader = mockk<DatabaseReader> { every { country(any()) } returns response }
 
 		// expect
 		assertFailsWith<GeoIpUnavailableException> { resolverBackedBy(reader).resolveCountry(IpAddress.of("8.8.8.8")) }
