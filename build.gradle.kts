@@ -35,6 +35,7 @@ dependencies {
 	implementation("org.flywaydb:flyway-database-postgresql")
 	implementation("org.jetbrains.kotlin:kotlin-reflect")
 	implementation("tools.jackson.module:jackson-module-kotlin")
+	implementation("com.google.guava:guava:33.6.0-jre")
 	// Embedded IP→country lookups from a local .mmdb (no per-request network call/quota), behind the GeoIpResolver port.
 	implementation("com.maxmind.geoip2:geoip2:5.2.0")
 	// Serves the OpenAPI document and Swagger UI generated from the controllers and DTOs.
