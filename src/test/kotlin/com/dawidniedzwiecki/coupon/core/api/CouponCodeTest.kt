@@ -19,6 +19,12 @@ class CouponCodeTest {
 	}
 
 	@Test
+	fun `toString renders the value`() {
+		// expect
+		assertEquals("WIOSNA", CouponCode.of("wiosna").toString())
+	}
+
+	@Test
 	fun `rejects a blank code`() {
 		// expect
 		assertFailsWith<IllegalArgumentException> { CouponCode.of("   ") }

@@ -25,6 +25,12 @@ class CountryCodeTest {
 	}
 
 	@Test
+	fun `toString renders the value`() {
+		// expect
+		assertEquals("US", CountryCode.of("US").toString())
+	}
+
+	@Test
 	fun `rejects codes that are not two letters`() {
 		// expect
 		assertFailsWith<IllegalArgumentException> { CountryCode.of("USA") }

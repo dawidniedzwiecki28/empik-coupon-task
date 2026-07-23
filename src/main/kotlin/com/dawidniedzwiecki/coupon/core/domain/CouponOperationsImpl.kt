@@ -12,9 +12,11 @@ import com.dawidniedzwiecki.coupon.core.infrastructure.persistence.CouponReposit
 import org.hibernate.exception.ConstraintViolationException
 import org.slf4j.LoggerFactory
 import org.springframework.dao.DataIntegrityViolationException
+import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
 
+@Service
 class CouponOperationsImpl(
 	private val couponRepository: CouponRepository,
 	private val redemptionExecutor: CouponRedemptionExecutor,
