@@ -4,6 +4,7 @@ import com.dawidniedzwiecki.coupon.core.api.CountryCode
 import com.dawidniedzwiecki.coupon.core.api.CouponCode
 import com.dawidniedzwiecki.coupon.core.api.CouponOperations
 import com.dawidniedzwiecki.coupon.core.api.CreateCouponCommand
+import com.dawidniedzwiecki.coupon.core.api.IpAddress
 import com.dawidniedzwiecki.coupon.core.api.RedeemCouponCommand
 import com.dawidniedzwiecki.coupon.core.api.RedemptionResult
 import com.dawidniedzwiecki.coupon.core.api.UserId
@@ -29,19 +30,14 @@ class CouponController(
 
 	@PostMapping
 	fun create(@Valid @RequestBody request: CreateCouponRequest): ResponseEntity<CreateCouponResponse> {
-		val couponId = couponOperations.createCoupon(
-			CreateCouponCommand(CouponCode.of(request.code), request.maxUses, CountryCode.of(request.country)),
-		)
+		val couponId = couponOperations.createCoupon(request.toCommand())
 		return ResponseEntity.status(HttpStatus.CREATED).body(CreateCouponResponse(couponId.value))
 	}
 
 	@PostMapping("/redemptions")
 	fun redeem(@Valid @RequestBody request: RedeemCouponRequest, httpRequest: HttpServletRequest): ResponseEntity<Any> {
-		val command = RedeemCouponCommand(
-			code = CouponCode.of(request.code),
-			userId = UserId(request.userId),
-			clientIp = clientIpResolver.resolve(request.ipOverride, httpRequest),
-		)
+		val clientIp = clientIpResolver.resolve(request.ipOverride, httpRequest)
+		val command = request.toCommand(clientIp)
 		return when (val result = couponOperations.redeem(command)) {
 			RedemptionResult.Success -> ResponseEntity.ok().build()
 			RedemptionResult.CouponNotFound ->
@@ -58,6 +54,12 @@ class CouponController(
 				)
 		}
 	}
+
+	private fun CreateCouponRequest.toCommand(): CreateCouponCommand =
+		CreateCouponCommand(CouponCode.of(code), maxUses, CountryCode.of(country))
+
+	private fun RedeemCouponRequest.toCommand(clientIp: IpAddress): RedeemCouponCommand =
+		RedeemCouponCommand(CouponCode.of(code), UserId(userId), clientIp)
 
 	private fun problem(status: HttpStatus, detail: String, properties: Map<String, Any> = emptyMap()): ResponseEntity<Any> {
 		val body = ProblemDetail.forStatusAndDetail(status, detail)

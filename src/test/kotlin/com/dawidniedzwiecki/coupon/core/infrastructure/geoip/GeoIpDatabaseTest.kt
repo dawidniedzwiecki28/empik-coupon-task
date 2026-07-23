@@ -11,9 +11,9 @@ class GeoIpDatabaseTest {
 		val initial = GeoIpTestFixtures.bundledReader()
 		val replacement = GeoIpTestFixtures.bundledReader()
 		val database = GeoIpDatabase(initial)
+		assertSame(initial, database.reader()) // baseline before the swap
 
 		// when
-		assertSame(initial, database.reader())
 		database.swap(replacement)
 
 		// then

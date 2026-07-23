@@ -2,6 +2,7 @@ package com.dawidniedzwiecki.coupon.config
 
 import com.dawidniedzwiecki.coupon.core.infrastructure.geoip.GeoIpDatabase
 import com.dawidniedzwiecki.coupon.core.infrastructure.geoip.GeoIpProperties
+import com.maxmind.db.Reader
 import com.maxmind.geoip2.DatabaseReader
 import org.slf4j.LoggerFactory
 import org.springframework.boot.context.properties.EnableConfigurationProperties
@@ -27,7 +28,9 @@ class GeoIpConfiguration {
 		val externalPath = properties.databasePath
 		if (!externalPath.isNullOrBlank()) {
 			log.info("Loading geo-IP database from external file: {}", externalPath)
-			return DatabaseReader.Builder(File(externalPath)).build()
+			// MEMORY (not the Builder(File) default MEMORY_MAPPED) so no reader holds an OS handle/mmap:
+			// hot-swapped readers can then be dropped for GC without a file lock or an unsafe close().
+			return DatabaseReader.Builder(File(externalPath)).fileMode(Reader.FileMode.MEMORY).build()
 		}
 		log.info("Loading bundled geo-IP database: {}", BUNDLED_DATABASE)
 		val resource = javaClass.getResourceAsStream(BUNDLED_DATABASE)

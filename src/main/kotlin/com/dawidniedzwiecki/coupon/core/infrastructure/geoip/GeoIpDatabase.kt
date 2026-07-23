@@ -15,8 +15,9 @@ class GeoIpDatabase(initial: DatabaseReader) : AutoCloseable {
 	fun reader(): DatabaseReader = current.get()
 
 	fun swap(next: DatabaseReader) {
-		// The replaced reader is in-memory (no OS handle) and is reclaimed by GC once the last
-		// concurrent lookup releases it; closing it here could break a lookup mid-swap.
+		// Every reader is loaded in MEMORY mode (no file handle/mmap), so the displaced one holds only
+		// heap and is reclaimed by GC. It is intentionally not close()d here: a concurrent lookup may
+		// still be mid-read on it during the swap, and closing would break that lookup.
 		current.set(next)
 	}
 
