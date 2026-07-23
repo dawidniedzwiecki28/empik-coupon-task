@@ -98,6 +98,15 @@ class CouponControllerTest @Autowired constructor(
 	}
 
 	@Test
+	fun `create rejects a body missing required fields with a 400 problem`() {
+		// expect — absent maxUses/country is a malformed request, not a 500
+		createRequest("""{"code":"X"}""").andExpect {
+			status { isBadRequest() }
+			content { contentType(MediaType.APPLICATION_PROBLEM_JSON) }
+		}
+	}
+
+	@Test
 	fun `create maps a duplicate code to a 409 problem`() {
 		// given
 		every { operations.createCoupon(any()) } throws CouponCodeAlreadyExistsException("WIOSNA")
@@ -241,6 +250,15 @@ class CouponControllerTest @Autowired constructor(
 	fun `redeem rejects a non-UUID userId with a 400 problem`() {
 		// expect
 		redeemRequest("""{"code":"WIOSNA","userId":"not-a-uuid"}""").andExpect {
+			status { isBadRequest() }
+			content { contentType(MediaType.APPLICATION_PROBLEM_JSON) }
+		}
+	}
+
+	@Test
+	fun `redeem rejects a body missing userId with a 400 problem`() {
+		// expect — an absent required field is a malformed request, not a 500
+		redeemRequest("""{"code":"WIOSNA"}""").andExpect {
 			status { isBadRequest() }
 			content { contentType(MediaType.APPLICATION_PROBLEM_JSON) }
 		}

@@ -1,11 +1,13 @@
 package com.dawidniedzwiecki.coupon.rest
 
+import com.dawidniedzwiecki.coupon.core.api.InvalidValueException
 import com.dawidniedzwiecki.coupon.core.api.IpAddress
 import io.mockk.every
 import io.mockk.mockk
 import jakarta.servlet.http.HttpServletRequest
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 
 class ClientIpResolverTest {
 
@@ -44,6 +46,18 @@ class ClientIpResolverTest {
 
 		// expect — the first non-empty hop is used
 		assertEquals(IpAddress.of("203.0.113.5"), resolver.resolve(request))
+	}
+
+	@Test
+	fun `rejects a malformed X-Forwarded-For value when trust is on`() {
+		// given
+		val resolver = ClientIpResolver(trustClientIp = true)
+		val request = mockk<HttpServletRequest> {
+			every { getHeader("X-Forwarded-For") } returns "not-an-ip"
+		}
+
+		// expect — an unparseable forwarded address is a rejected value (400 at the edge), not a 500
+		assertFailsWith<InvalidValueException> { resolver.resolve(request) }
 	}
 
 	@Test

@@ -175,7 +175,7 @@ and asserts that *exactly* `maxUses` succeed.
 ## Geo-IP
 
 Country is resolved from a **local IP→country database** (DB-IP Lite, MaxMind `.mmdb` format) loaded
-into memory at startup — a sub-microsecond in-process lookup with **no per-request network call and no
+into memory at startup — a microsecond-scale in-process lookup with **no per-request network call and no
 quota**. This deletes an entire class of production problems (rate limits, latency, retries, circuit
 breakers) that a hosted geo-IP API would introduce, and is why holding the transaction across the
 lookup is safe.
@@ -272,16 +272,19 @@ existing decision is sound. Correctness is backed by **deterministic gates in CI
 build when violated: **detekt** (code smells and style), the **ArchUnit** boundary test, and the
 **JaCoCo** coverage threshold. Actions are SHA-pinned and credentials are not persisted.
 
-detekt's `config/detekt/detekt.yml` relaxes only rules that are noise for this codebase (magic numbers
-that are self-evident domain constants, the idiomatic `*args` spread), with local `@Suppress` for the
-two genuinely-exceptional spots (the branchy IPv6 validator, the deliberate broad catch in the geo-IP
-refresh). ktlint is intentionally not wired: the ktlint releases available don't cleanly support this
-project's Kotlin 2.3 + tab indentation, and detekt's `style` ruleset already covers that ground.
+detekt's `config/detekt/detekt.yml` relaxes a handful of rules that are noise for this codebase — magic
+numbers (self-evident domain constants), a wider max line length, a higher return-count ceiling,
+`serialVersionUID`, an unused-parameter exception for `@ExceptionHandler` methods, and the idiomatic
+`*args` spread — with a local `@Suppress` for the one genuinely-exceptional spot (the deliberate broad
+catch in the geo-IP refresh). ktlint is intentionally not wired: the ktlint releases available don't
+cleanly support this project's Kotlin 2.3 + tab indentation, and detekt's `style` ruleset already covers
+that ground.
 
 ## Configuration
 
-All settings have working defaults. The first group are environment variables read by
-`application.yml`; the last is a Spring property (set via `--coupon.rest.trust-client-ip=true` or the
+All settings have working defaults. The first group are environment variables bound to Spring
+configuration properties (most through `application.yml`, `GEOIP_UPDATE_URL` via relaxed binding); the
+last is a Spring property (set via `--coupon.rest.trust-client-ip=true` or the
 `COUPON_REST_TRUST_CLIENT_IP` environment alias).
 
 | Setting                       | Default                                   | Purpose                                          |

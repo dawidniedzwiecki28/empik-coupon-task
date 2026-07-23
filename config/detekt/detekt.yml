@@ -1,6 +1,6 @@
 # Overrides layered on top of detekt's default rules (buildUponDefaultConfig = true).
-# The two genuinely-exceptional spots (the IPv6 syntactic validator's complexity, the deliberate
-# broad catch in the geo-IP refresh) are handled with local @Suppress + a comment, not global relaxing.
+# The one genuinely-exceptional spot (the deliberate broad catch in the geo-IP refresh) is handled
+# with a local @Suppress + a comment, not global relaxing.
 
 style:
   MagicNumber:
