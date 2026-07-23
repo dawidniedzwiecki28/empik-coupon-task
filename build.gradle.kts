@@ -37,6 +37,8 @@ dependencies {
 	implementation("tools.jackson.module:jackson-module-kotlin")
 	// Embedded IP→country lookups from a local .mmdb (no per-request network call/quota), behind the GeoIpResolver port.
 	implementation("com.maxmind.geoip2:geoip2:5.2.0")
+	// Serves the OpenAPI document and Swagger UI generated from the controllers and DTOs.
+	implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.3")
 	runtimeOnly("org.postgresql:postgresql")
 
 	testImplementation("org.springframework.boot:spring-boot-starter-actuator-test")
