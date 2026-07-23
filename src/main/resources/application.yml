@@ -38,5 +38,5 @@ logging:
   level:
     com.dawidniedzwiecki.coupon: INFO
   pattern:
-    # Carry the per-request correlation id (set by RequestIdFilter) on every log line; empty off-request.
+    # Per-request correlation id (from RequestIdFilter) on every log line.
     level: "%5p [%X{requestId:-}]"

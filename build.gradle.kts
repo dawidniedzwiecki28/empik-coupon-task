@@ -62,7 +62,7 @@ kotlin {
 	}
 }
 
-// Only the executable bootJar is an artifact here; skip the plain library jar so the Docker image has one jar.
+// Skip the plain library jar so the Docker image has a single jar to launch.
 tasks.jar {
 	enabled = false
 }

@@ -1,4 +1,3 @@
-# Keep the build context small and reproducible — build artifacts and local state never belong in the image.
 .git
 .gradle
 build

@@ -1,8 +1,7 @@
 # syntax=docker/dockerfile:1
 
-# Base images are pinned by multi-arch digest for reproducible, verifiable builds (the tag is kept for
-# readability). Digests, unlike apt version pins, stay pullable when superseded — bump them deliberately
-# (e.g. via Renovate) to pick up JRE/OS security patches.
+# Base images pinned by digest for reproducible builds (tag kept for readability); bump deliberately
+# (e.g. Renovate) for JRE/OS security patches.
 
 # ---- build stage: compile the executable jar on JDK 21 ----
 FROM eclipse-temurin:21-jdk@sha256:da9d3a4f7650db39b918fc5a2c3da76556fb8cc8e5f3767cdea0bb409286951a AS build
@@ -18,10 +17,8 @@ RUN ./gradlew --no-daemon clean bootJar -x test
 # ---- runtime stage: JRE only, non-root ----
 FROM eclipse-temurin:21-jre@sha256:273396ed5998598ed1091e8d72711c2d36980a0e65103859c55a4e977a41ffd3 AS runtime
 WORKDIR /app
-# curl is only for the healthcheck below; drop the apt lists to keep the layer small.
-# Intentionally not pinning the curl version (DL3008): apt pins on a rolling Ubuntu base self-break once
-# the patch release is superseded and dropped from the archive — the pinned base digest above is what
-# anchors reproducibility instead.
+# curl is only for the HEALTHCHECK below. Not version-pinning it (DL3008): apt pins self-break on a
+# rolling base once the patch is dropped from the archive — the pinned base digest anchors reproducibility.
 # hadolint ignore=DL3008
 RUN apt-get update \
 	&& apt-get install -y --no-install-recommends curl \
@@ -30,7 +27,7 @@ RUN apt-get update \
 COPY --from=build /workspace/build/libs/*.jar app.jar
 USER app
 EXPOSE 8080
-# Report readiness from the app itself, so Docker/Compose see "unhealthy" if Spring fails to start or the DB is down.
+# App-level readiness: reports unhealthy if Spring or its DB isn't up.
 HEALTHCHECK --interval=15s --timeout=3s --start-period=40s --retries=5 \
 	CMD curl -fsS http://localhost:8080/actuator/health | grep -q '"status":"UP"' || exit 1
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]
