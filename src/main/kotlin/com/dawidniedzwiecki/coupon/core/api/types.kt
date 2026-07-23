@@ -98,7 +98,7 @@ sealed interface RedemptionResult {
 }
 
 /** A request value was rejected at construction; distinct from a stray IllegalArgumentException so the edge maps only this to 400. */
-class InvalidValueException(message: String) : IllegalArgumentException(message)
+class InvalidValueException(override val message: String) : IllegalArgumentException(message)
 
 class CouponCodeAlreadyExistsException(val code: String) :
 	RuntimeException("A coupon with code '$code' already exists")

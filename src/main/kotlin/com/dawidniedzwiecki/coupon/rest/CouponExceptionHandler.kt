@@ -31,7 +31,7 @@ class CouponExceptionHandler {
 	// Scoped to InvalidValueException so an unrelated IllegalArgumentException deeper in the stack stays a 500, not a 400.
 	@ExceptionHandler(InvalidValueException::class)
 	fun handleInvalidInput(ex: InvalidValueException): ProblemDetail =
-		problem(HttpStatus.BAD_REQUEST, "invalid-request", ex.message ?: "Invalid request")
+		problem(HttpStatus.BAD_REQUEST, "invalid-request", ex.message)
 
 	private fun problem(status: HttpStatusCode, type: String, detail: String): ProblemDetail =
 		ProblemDetail.forStatusAndDetail(status, detail).apply { this.type = problemType(type) }
