@@ -10,6 +10,7 @@ import com.github.tomakehurst.wiremock.client.WireMock.get
 import com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor
 import com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration.options
+import com.github.tomakehurst.wiremock.http.Fault
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -71,6 +72,17 @@ class IpApiGeoIpResolverTest {
 	fun `fails closed on an unusable body`() {
 		// given
 		stubCountry("8.8.8.8", status = 200, body = "Undefined")
+
+		// expect
+		assertFailsWith<GeoIpUnavailableException> { resolver.resolveCountry(IpAddress.of("8.8.8.8")) }
+	}
+
+	@Test
+	fun `fails closed on a transport error`() {
+		// given
+		wireMock.stubFor(
+			get(urlPathEqualTo("/8.8.8.8/country/")).willReturn(aResponse().withFault(Fault.CONNECTION_RESET_BY_PEER)),
+		)
 
 		// expect
 		assertFailsWith<GeoIpUnavailableException> { resolver.resolveCountry(IpAddress.of("8.8.8.8")) }
