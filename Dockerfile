@@ -14,8 +14,15 @@ RUN ./gradlew --no-daemon clean bootJar -x test
 # ---- runtime stage: JRE only, non-root ----
 FROM eclipse-temurin:21-jre AS runtime
 WORKDIR /app
-RUN groupadd --system app && useradd --system --gid app --home /app app
+# curl is only for the healthcheck below; drop the apt lists to keep the layer small.
+RUN apt-get update \
+	&& apt-get install -y --no-install-recommends curl \
+	&& rm -rf /var/lib/apt/lists/* \
+	&& groupadd --system app && useradd --system --gid app --home /app app
 COPY --from=build /workspace/build/libs/*.jar app.jar
 USER app
 EXPOSE 8080
+# Report readiness from the app itself, so Docker/Compose see "unhealthy" if Spring fails to start or the DB is down.
+HEALTHCHECK --interval=15s --timeout=3s --start-period=40s --retries=5 \
+	CMD curl -fsS http://localhost:8080/actuator/health | grep -q '"status":"UP"' || exit 1
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

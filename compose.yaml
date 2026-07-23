@@ -1,7 +1,6 @@
 services:
   app:
     build: .
-    container_name: coupon-app
     depends_on:
       postgres:
         condition: service_healthy
@@ -14,7 +13,6 @@ services:
 
   postgres:
     image: postgres:17-alpine
-    container_name: coupon-postgres
     environment:
       POSTGRES_DB: coupon
       POSTGRES_USER: coupon
