@@ -62,9 +62,9 @@ from the connection by default; see [Client IP & trust](#client-ip--trust).
 
 ### Outcomes
 
-Every outcome maps to a distinct HTTP status. Rejections carry an
-[RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) `application/problem+json` body whose `detail`
-distinguishes the two `409` cases.
+Each outcome has a documented HTTP status. The two conflict cases share `409`, distinguished by the
+`detail` of the [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) `application/problem+json` body
+that every rejection carries.
 
 | Outcome                  | Status | Notes                                                |
 |--------------------------|--------|------------------------------------------------------|
@@ -73,7 +73,7 @@ distinguishes the two `409` cases.
 | Usage limit reached      | `409`  |                                                      |
 | Already redeemed by user | `409`  |                                                      |
 | Country not allowed      | `403`  | body includes `requiredCountry` and `callerCountry`  |
-| Caller country unknown   | `503`  | geo-IP could not resolve the IP — fail-closed        |
+| Caller country unknown   | `503`  | geo-IP dependency couldn't resolve the country — fail-closed |
 | Malformed request        | `400`  |                                                      |
 
 ## Architecture
@@ -115,8 +115,9 @@ truth. Two invariants are enforced entirely by atomic SQL inside one short trans
    WHERE id = :id AND current_uses < max_uses
    ```
 
-   Postgres takes the row lock only for the statement's duration. `0` rows → the coupon is full.
-   The cap can never be exceeded, no matter how many requests race.
+   Postgres holds the row lock from this update until the transaction commits — a very short window,
+   as the transaction contains only these statements and no external call. `0` rows → the coupon is
+   full. The cap can never be exceeded, no matter how many requests race.
 
 2. **One redemption per user** — a composite primary key `(coupon_id, user_id)` plus an
    **insert-first** `INSERT … ON CONFLICT DO NOTHING`, acting on rows-affected (not check-then-act,
@@ -202,9 +203,11 @@ and credentials are not persisted. (detekt/ktlint are a planned follow-up.)
 
 ## Configuration
 
-All settings have working defaults; override via environment variables.
+All settings have working defaults. The first group are environment variables read by
+`application.yml`; the last is a Spring property (set via `--coupon.rest.trust-client-ip=true` or the
+`COUPON_REST_TRUST_CLIENT_IP` environment alias).
 
-| Variable                      | Default                                   | Purpose                                          |
+| Setting                       | Default                                   | Purpose                                          |
 |-------------------------------|-------------------------------------------|--------------------------------------------------|
 | `DB_URL`                      | `jdbc:postgresql://localhost:5432/coupon` | JDBC URL                                         |
 | `DB_USERNAME` / `DB_PASSWORD` | `coupon` / `coupon`                       | Database credentials                             |
