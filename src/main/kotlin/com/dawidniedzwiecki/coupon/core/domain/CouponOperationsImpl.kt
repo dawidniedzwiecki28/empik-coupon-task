@@ -35,9 +35,8 @@ class CouponOperationsImpl(
 	override fun createCoupon(command: CreateCouponCommand): CouponId {
 		val entity = CouponEntity.create(command, clock)
 		val saved = couponRepository.saveEnforcingUniqueCode(entity)
-		val id = requireNotNull(saved.id) { "persisted coupon has no id" }
-		log.info("Coupon created: id={} code={} country={} maxUses={}", id, saved.code, saved.country, saved.maxUses)
-		return CouponId(id)
+		log.info("Coupon created: id={} code={} country={} maxUses={}", saved.id, saved.code, saved.country, saved.maxUses)
+		return CouponId(saved.persistedId)
 	}
 
 	@Transactional(readOnly = true)
@@ -69,7 +68,7 @@ class CouponOperationsImpl(
 			return RedemptionResult.CountryNotAllowed(coupon.country, callerCountry.value)
 		}
 
-		return consume(requireNotNull(coupon.id), command.userId.value)
+		return consume(coupon.persistedId, command.userId.value)
 	}
 
 	// Insert-first rejects a repeat user before the counter moves; if the coupon is already full the
@@ -90,7 +89,7 @@ class CouponOperationsImpl(
 
 	private fun CouponEntity.toView(): CouponView =
 		CouponView(
-			id = requireNotNull(id) { "persisted coupon has no id" },
+			id = persistedId,
 			code = code,
 			country = country,
 			maxUses = maxUses,

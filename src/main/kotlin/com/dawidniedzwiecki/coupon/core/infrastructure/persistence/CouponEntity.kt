@@ -18,7 +18,8 @@ import java.util.UUID
 @Table(name = "coupons")
 class CouponEntity(
 	// Provider-generated: the id is null until persist, so Spring Data's isNew() picks persist() over
-	// merge() — a plain INSERT with no SELECT-before-INSERT round trip.
+	// merge() — a plain INSERT with no SELECT-before-INSERT round trip. Non-null once persisted or loaded;
+	// read it through [persistedId].
 	@Id
 	@GeneratedValue(strategy = GenerationType.UUID)
 	val id: UUID? = null,
@@ -33,6 +34,9 @@ class CouponEntity(
 	@JdbcTypeCode(SqlTypes.CHAR)
 	val country: String,
 ) {
+	/** The id of a persisted/loaded entity. The null case is unreachable here (only a pre-persist entity has none). */
+	val persistedId: UUID get() = requireNotNull(id) { "entity has not been persisted" }
+
 	companion object {
 		/** Unique constraint on `code`; must match `uq_coupons_code` in V1__create_coupons.sql. */
 		const val UNIQUE_CODE_CONSTRAINT = "uq_coupons_code"

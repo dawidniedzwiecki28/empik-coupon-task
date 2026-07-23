@@ -20,7 +20,7 @@ class CouponExceptionHandler {
 
 	@ExceptionHandler(CouponNotFoundException::class)
 	fun handleCouponNotFound(ex: CouponNotFoundException): ProblemDetail =
-		problem(HttpStatus.NOT_FOUND, "coupon-not-found", "No coupon exists with the supplied id")
+		problem(HttpStatus.NOT_FOUND, "coupon-not-found", "No coupon exists with id '${ex.id}'")
 
 	// 422, not 503: the caller's IP simply can't be mapped to a country (fail-closed) — a property of the
 	// request we can't process, not a server outage. The bundled database is always available in-process.
