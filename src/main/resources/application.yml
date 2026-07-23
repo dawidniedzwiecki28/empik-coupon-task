@@ -20,12 +20,15 @@ spring:
       enabled: true  # validation / not-readable errors return RFC 9457 ProblemDetail
 
 geoip:
-  # HTTPS so a spoofed response can't grant a country-restricted redemption.
-  base-url: ${GEOIP_BASE_URL:https://ipapi.co}
-  timeout: ${GEOIP_TIMEOUT:2s}
-  cache:
-    maximum-size: 50000
-    ttl: 24h
+  # IP→country is resolved from a bundled DB-IP Lite snapshot (CC-BY-4.0; see NOTICE). Point
+  # GEOIP_DATABASE_PATH at an external .mmdb to use a fresher database as the startup baseline.
+  database-path: ${GEOIP_DATABASE_PATH:}
+  # Optional auto-update: set GEOIP_UPDATE_URL (→ geoip.update-url) to fetch a fresh database on startup
+  # and on update-cron, hot-swapping it in memory; any failure falls back to the current database. Left
+  # unset by default so the demo/CI run offline and deterministically — prefer refreshing via image
+  # redeploy. Example URL: https://download.db-ip.com/free/dbip-country-lite-{date}.mmdb.gz
+  # ({date} → current yyyy-MM). When enabled, override the schedule with GEOIP_UPDATE_CRON.
+  update-cron: ${GEOIP_UPDATE_CRON:0 0 3 * * *}
 
 management:
   endpoints:
