@@ -35,6 +35,18 @@ class ClientIpResolverTest {
 	}
 
 	@Test
+	fun `skips an empty leading X-Forwarded-For value when trust is on`() {
+		// given
+		val resolver = ClientIpResolver(trustClientIp = true)
+		val request = mock<HttpServletRequest> {
+			on { getHeader("X-Forwarded-For") } doReturn ", 203.0.113.5"
+		}
+
+		// expect — the first non-empty hop is used
+		assertEquals(IpAddress.of("203.0.113.5"), resolver.resolve(request))
+	}
+
+	@Test
 	fun `falls back to the remote address when trust is on but no header is present`() {
 		// given
 		val resolver = ClientIpResolver(trustClientIp = true)

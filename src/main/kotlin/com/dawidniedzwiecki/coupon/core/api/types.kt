@@ -2,7 +2,7 @@ package com.dawidniedzwiecki.coupon.core.api
 
 import java.util.UUID
 
-/** ISO 3166-1 alpha-2 country code. */
+/** Two-letter country code, upper-cased — ISO 3166-1 alpha-2 shape, not checked against the assigned list. */
 @JvmInline
 value class CountryCode private constructor(val value: String) {
 	companion object {

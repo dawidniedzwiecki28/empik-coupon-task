@@ -24,6 +24,7 @@ import org.springframework.test.web.servlet.post
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import kotlin.test.assertEquals
 
 @SpringBootTest(properties = ["coupon.rest.trust-client-ip=true"]) // run as if behind a trusted, IP-forwarding proxy
@@ -161,7 +162,7 @@ class CouponRestIntegrationTest @Autowired constructor(
 		val statuses = try {
 			(1..attempts)
 				.map { pool.submit<Int> { redeem("RUSH", UUID.randomUUID(), "8.8.4.4").andReturn().response.status } }
-				.map { it.get() }
+				.map { it.get(30, TimeUnit.SECONDS) }
 		} finally {
 			pool.shutdown()
 		}

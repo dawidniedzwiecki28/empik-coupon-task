@@ -17,7 +17,10 @@ class ClientIpResolver(
 ) {
 	fun resolve(request: HttpServletRequest): IpAddress {
 		if (!trustClientIp) return IpAddress.of(request.remoteAddr)
-		val forwardedFor = request.getHeader("X-Forwarded-For")?.substringBefore(",")?.trim()?.takeIf { it.isNotEmpty() }
+		val forwardedFor = request.getHeader("X-Forwarded-For")
+			?.split(',')
+			?.map { it.trim() }
+			?.firstOrNull { it.isNotEmpty() }
 		return IpAddress.of(forwardedFor ?: request.remoteAddr)
 	}
 }

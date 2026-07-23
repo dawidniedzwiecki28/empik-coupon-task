@@ -60,9 +60,20 @@ class GeoIpDatabaseUpdater(
 	}
 
 	private fun download(url: String): DatabaseReader {
-		val request = HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofSeconds(30)).GET().build()
-		val response = httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray())
+		val uri = URI.create(url)
+		require(isSecure(uri)) { "geo-IP update URL must use HTTPS: $url" }
+		val request = HttpRequest.newBuilder(uri).timeout(Duration.ofSeconds(30)).GET().build()
+		val response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream())
 		require(response.statusCode() == 200) { "unexpected HTTP status ${response.statusCode()} from $url" }
-		return DatabaseReader.Builder(GZIPInputStream(ByteArrayInputStream(response.body()))).build()
+		// Bounded read so a hostile or misconfigured endpoint can't OOM the refresh with a huge or zip-bombed body.
+		val mmdb = response.body().use { body -> GZIPInputStream(body).use { it.readNBytes(MAX_DATABASE_BYTES + 1) } }
+		require(mmdb.size <= MAX_DATABASE_BYTES) { "geo-IP database exceeds $MAX_DATABASE_BYTES bytes" }
+		return DatabaseReader.Builder(ByteArrayInputStream(mmdb)).build()
 	}
+
+	/** HTTPS only, except loopback so a local server can be used in tests. */
+	private fun isSecure(uri: URI): Boolean =
+		uri.scheme == "https" || (uri.scheme == "http" && uri.host in setOf("localhost", "127.0.0.1", "[::1]"))
 }
+
+private const val MAX_DATABASE_BYTES = 64 * 1024 * 1024

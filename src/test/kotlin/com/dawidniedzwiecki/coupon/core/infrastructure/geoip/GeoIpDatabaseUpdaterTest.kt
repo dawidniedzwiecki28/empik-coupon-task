@@ -81,6 +81,19 @@ class GeoIpDatabaseUpdaterTest {
 	}
 
 	@Test
+	fun `rejects a non-HTTPS update URL and keeps the current database`() {
+		// given
+		val database = GeoIpDatabase(GeoIpTestFixtures.bundledReader())
+		val original = database.reader()
+
+		// when — a non-loopback http URL is refused before any request is made
+		updater(database, "http://geoip.example.com/db.mmdb.gz").refreshOnStartup()
+
+		// then
+		assertSame(original, database.reader())
+	}
+
+	@Test
 	fun `does nothing when the update URL is blank`() {
 		// given
 		val database = GeoIpDatabase(GeoIpTestFixtures.bundledReader())

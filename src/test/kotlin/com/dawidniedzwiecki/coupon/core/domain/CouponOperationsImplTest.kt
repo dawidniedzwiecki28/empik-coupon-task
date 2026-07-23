@@ -9,7 +9,6 @@ import com.dawidniedzwiecki.coupon.core.api.IpAddress
 import com.dawidniedzwiecki.coupon.core.api.RedeemCouponCommand
 import com.dawidniedzwiecki.coupon.core.api.RedemptionResult
 import com.dawidniedzwiecki.coupon.core.api.UserId
-import com.dawidniedzwiecki.coupon.core.infrastructure.geoip.GeoIpDatabase
 import com.dawidniedzwiecki.coupon.core.infrastructure.geoip.GeoIpResolver
 import com.dawidniedzwiecki.coupon.core.infrastructure.geoip.GeoIpTestFixtures
 import com.dawidniedzwiecki.coupon.core.infrastructure.persistence.CouponEntity
@@ -221,6 +220,6 @@ private class FakeGeoIpResolver : GeoIpResolver(SHARED_DATABASE) {
 	}
 
 	private companion object {
-		val SHARED_DATABASE = GeoIpDatabase(GeoIpTestFixtures.bundledReader())
+		val SHARED_DATABASE = GeoIpTestFixtures.dummyDatabase()
 	}
 }

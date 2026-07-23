@@ -9,7 +9,6 @@ import com.dawidniedzwiecki.coupon.core.api.IpAddress
 import com.dawidniedzwiecki.coupon.core.api.RedeemCouponCommand
 import com.dawidniedzwiecki.coupon.core.api.RedemptionResult
 import com.dawidniedzwiecki.coupon.core.api.UserId
-import com.dawidniedzwiecki.coupon.core.infrastructure.geoip.GeoIpDatabase
 import com.dawidniedzwiecki.coupon.core.infrastructure.geoip.GeoIpResolver
 import com.dawidniedzwiecki.coupon.core.infrastructure.geoip.GeoIpTestFixtures
 import com.dawidniedzwiecki.coupon.core.infrastructure.persistence.CouponRedemptionRepository
@@ -25,6 +24,7 @@ import org.springframework.context.annotation.Primary
 import java.util.UUID
 import java.util.concurrent.Callable
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 
@@ -143,7 +143,7 @@ class CouponOperationsIntegrationTest @Autowired constructor(
 		val outcomes = try {
 			(1..attempts)
 				.map { pool.submit(Callable { redeem("RUSH", UUID.randomUUID()) }) }
-				.map { it.get() }
+				.map { it.get(30, TimeUnit.SECONDS) }
 		} finally {
 			pool.shutdown()
 		}
@@ -163,7 +163,7 @@ class CouponOperationsIntegrationTest @Autowired constructor(
 }
 
 /** Resolves every caller to a single configurable country; subclasses the resolver as there is no interface. */
-class FixedCountryGeoIpResolver : GeoIpResolver(GeoIpDatabase(GeoIpTestFixtures.bundledReader())) {
+class FixedCountryGeoIpResolver : GeoIpResolver(GeoIpTestFixtures.dummyDatabase()) {
 	@Volatile
 	var country: CountryCode = CountryCode.of("PL")
 
