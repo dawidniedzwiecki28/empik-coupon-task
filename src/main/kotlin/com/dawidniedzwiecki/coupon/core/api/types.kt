@@ -37,6 +37,8 @@ value class IpAddress private constructor(val value: String) {
 			}
 		}
 
+		// A syntactic IPv6 validator is inherently branchy; the logic is exhaustively covered by tests.
+		@Suppress("CyclomaticComplexMethod", "ComplexCondition", "ReturnCount")
 		private fun isIpv6(raw: String): Boolean {
 			val s = raw.substringBefore('%') // ignore an optional zone index
 			val compressed = "::" in s

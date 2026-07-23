@@ -197,9 +197,15 @@ The design is deliberately partition-ready without building it now:
 AI-assisted review (CodeRabbit, configured via `.coderabbit.yaml` with the architecture and
 concurrency invariants encoded as path instructions) is used, but findings are **triaged critically,
 not rubber-stamped** — accepted when they improve the code, and pushed back on with reasoning when the
-existing decision is sound. Correctness is backed by **deterministic gates in CI**: the ArchUnit
-boundary test and the coverage threshold both fail the build when violated, actions are SHA-pinned,
-and credentials are not persisted. (detekt/ktlint are a planned follow-up.)
+existing decision is sound. Correctness is backed by **deterministic gates in CI** that all fail the
+build when violated: **detekt** (code smells and style), the **ArchUnit** boundary test, and the
+**JaCoCo** coverage threshold. Actions are SHA-pinned and credentials are not persisted.
+
+detekt's `config/detekt/detekt.yml` relaxes only rules that are noise for this codebase (magic numbers
+that are self-evident domain constants, the idiomatic `*args` spread), with local `@Suppress` for the
+two genuinely-exceptional spots (the branchy IPv6 validator, the deliberate broad catch in the geo-IP
+refresh). ktlint is intentionally not wired: the ktlint releases available don't cleanly support this
+project's Kotlin 2.3 + tab indentation, and detekt's `style` ruleset already covers that ground.
 
 ## Configuration
 
@@ -229,4 +235,4 @@ All settings have working defaults. The first group are environment variables re
 ## Tech
 
 Kotlin, Spring Boot, PostgreSQL, Flyway, Spring Data JPA, MaxMind `geoip2` (DB-IP data), JUnit 5,
-Testcontainers, mockito-kotlin, ArchUnit. Built with Gradle, targeting Java 21.
+Testcontainers, mockito-kotlin, ArchUnit, detekt. Built with Gradle, targeting Java 21.

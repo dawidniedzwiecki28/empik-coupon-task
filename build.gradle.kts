@@ -9,6 +9,7 @@ plugins {
 	id("org.springframework.boot") version "4.1.0"
 	id("io.spring.dependency-management") version "1.1.7"
 	kotlin("plugin.jpa") version "2.3.21"
+	id("io.gitlab.arturbosch.detekt") version "1.23.8"
 	jacoco
 }
 
@@ -55,6 +56,19 @@ dependencies {
 kotlin {
 	compilerOptions {
 		freeCompilerArgs.addAll("-Xjsr305=strict", "-Xannotation-default-target=param-property")
+	}
+}
+
+detekt {
+	buildUponDefaultConfig = true
+	config.setFrom(files("config/detekt/detekt.yml"))
+}
+
+// detekt 1.23 ships compiled against Kotlin 2.0.21 and refuses to run on the project's 2.3.21; pin
+// its own classpath to the version it was built with (it still analyses the 2.3 sources fine).
+configurations.matching { it.name.startsWith("detekt") }.configureEach {
+	resolutionStrategy.eachDependency {
+		if (requested.group == "org.jetbrains.kotlin") useVersion("2.0.21")
 	}
 }
 
