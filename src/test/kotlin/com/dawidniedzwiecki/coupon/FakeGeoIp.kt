@@ -4,13 +4,12 @@ import com.dawidniedzwiecki.coupon.core.api.CountryCode
 import com.dawidniedzwiecki.coupon.core.api.GeoIpUnavailableException
 import com.dawidniedzwiecki.coupon.core.api.IpAddress
 import com.dawidniedzwiecki.coupon.core.infrastructure.geoip.GeoIpResolver
-import com.dawidniedzwiecki.coupon.core.infrastructure.geoip.GeoIpTestFixtures
 import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Primary
 
 /** Deterministic geo-IP: every caller resolves to [country], or fails when [available] is false. */
-class FakeGeoIpResolver : GeoIpResolver(GeoIpTestFixtures.dummyDatabase()) {
+class FakeGeoIpResolver : GeoIpResolver {
 	@Volatile
 	var country: CountryCode = CountryCode.of("PL")
 

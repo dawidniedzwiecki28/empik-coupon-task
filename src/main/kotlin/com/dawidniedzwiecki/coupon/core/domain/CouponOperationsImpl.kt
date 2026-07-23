@@ -3,6 +3,7 @@ package com.dawidniedzwiecki.coupon.core.domain
 import com.dawidniedzwiecki.coupon.core.api.CouponCodeAlreadyExistsException
 import com.dawidniedzwiecki.coupon.core.api.CouponId
 import com.dawidniedzwiecki.coupon.core.api.CouponOperations
+import com.dawidniedzwiecki.coupon.core.api.CouponView
 import com.dawidniedzwiecki.coupon.core.api.CreateCouponCommand
 import com.dawidniedzwiecki.coupon.core.api.RedeemCouponCommand
 import com.dawidniedzwiecki.coupon.core.api.RedemptionResult
@@ -34,12 +35,19 @@ class CouponOperationsImpl(
 	override fun createCoupon(command: CreateCouponCommand): CouponId {
 		val entity = CouponEntity.create(command, clock)
 		val saved = couponRepository.saveEnforcingUniqueCode(entity)
-		log.info("Coupon created: id={} code={} country={} maxUses={}", saved.id, saved.code, saved.country, saved.maxUses)
-		return CouponId(saved.id)
+		val id = requireNotNull(saved.id) { "persisted coupon has no id" }
+		log.info("Coupon created: id={} code={} country={} maxUses={}", id, saved.code, saved.country, saved.maxUses)
+		return CouponId(id)
 	}
 
-	// @Transactional so the insert, conditional increment, and compensating delete commit as one unit.
-	// Geo-IP resolution runs inside this transaction, so it must stay a local, fast lookup.
+	@Transactional(readOnly = true)
+	override fun findCoupon(id: CouponId): CouponView? =
+		couponRepository.findById(id.value).map { it.toView() }.orElse(null)
+
+	// One transaction spans the insert, conditional increment, and compensating delete so the tentative
+	// redemption's undo is atomic. The country lookup runs inside it too, but that's safe by design: it is
+	// a local, in-memory database read (no network call), so the row lock is held for microseconds, not an
+	// external round trip.
 	@Transactional
 	override fun redeem(command: RedeemCouponCommand): RedemptionResult {
 		val coupon = couponRepository.findByCode(command.code.value)
@@ -61,7 +69,7 @@ class CouponOperationsImpl(
 			return RedemptionResult.CountryNotAllowed(coupon.country, callerCountry.value)
 		}
 
-		return consume(coupon.id, command.userId.value)
+		return consume(requireNotNull(coupon.id), command.userId.value)
 	}
 
 	// Insert-first rejects a repeat user before the counter moves; if the coupon is already full the
@@ -79,6 +87,16 @@ class CouponOperationsImpl(
 		log.debug("Redemption succeeded: couponId={} userId={}", couponId, userId)
 		return RedemptionResult.Success
 	}
+
+	private fun CouponEntity.toView(): CouponView =
+		CouponView(
+			id = requireNotNull(id) { "persisted coupon has no id" },
+			code = code,
+			country = country,
+			maxUses = maxUses,
+			currentUses = currentUses,
+			createdAt = createdAt,
+		)
 
 	private fun CouponRepository.saveEnforcingUniqueCode(entity: CouponEntity): CouponEntity =
 		try {

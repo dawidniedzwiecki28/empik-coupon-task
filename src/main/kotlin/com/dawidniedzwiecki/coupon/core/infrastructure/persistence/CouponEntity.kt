@@ -1,8 +1,11 @@
 package com.dawidniedzwiecki.coupon.core.infrastructure.persistence
 
 import com.dawidniedzwiecki.coupon.core.api.CreateCouponCommand
+import com.dawidniedzwiecki.coupon.core.api.InvalidValueException
 import jakarta.annotation.Nonnull
 import jakarta.persistence.Entity
+import jakarta.persistence.GeneratedValue
+import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.Table
 import org.hibernate.annotations.JdbcTypeCode
@@ -14,9 +17,11 @@ import java.util.UUID
 @Entity
 @Table(name = "coupons")
 class CouponEntity(
+	// Provider-generated: the id is null until persist, so Spring Data's isNew() picks persist() over
+	// merge() — a plain INSERT with no SELECT-before-INSERT round trip.
 	@Id
-	@Nonnull
-	val id: UUID,
+	@GeneratedValue(strategy = GenerationType.UUID)
+	val id: UUID? = null,
 	@Nonnull
 	val code: String,
 	@Nonnull
@@ -33,9 +38,8 @@ class CouponEntity(
 		const val UNIQUE_CODE_CONSTRAINT = "uq_coupons_code"
 
 		fun create(command: CreateCouponCommand, clock: Clock): CouponEntity {
-			require(command.maxUses > 0) { "maxUses must be positive" }
+			if (command.maxUses <= 0) throw InvalidValueException("maxUses must be positive")
 			return CouponEntity(
-				id = UUID.randomUUID(),
 				code = command.code.value,
 				createdAt = Instant.now(clock),
 				maxUses = command.maxUses,

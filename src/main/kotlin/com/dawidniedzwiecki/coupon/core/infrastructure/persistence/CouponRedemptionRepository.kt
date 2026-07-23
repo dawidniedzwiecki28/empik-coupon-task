@@ -9,7 +9,8 @@ import java.util.UUID
 interface CouponRedemptionRepository : JpaRepository<CouponRedemptionEntity, CouponRedemptionId> {
 
 	/** Returns 1 when inserted, 0 when the pair already exists — never throws on conflict. */
-	@Modifying
+	// clearAutomatically: keep the persistence context consistent with these native writes.
+	@Modifying(clearAutomatically = true)
 	@Query(
 		value = "INSERT INTO coupon_redemptions (coupon_id, user_id, redeemed_at) VALUES (:couponId, :userId, :redeemedAt) " +
 			"ON CONFLICT (coupon_id, user_id) DO NOTHING",
@@ -17,7 +18,7 @@ interface CouponRedemptionRepository : JpaRepository<CouponRedemptionEntity, Cou
 	)
 	fun insertIfAbsent(couponId: UUID, userId: UUID, redeemedAt: Instant): Int
 
-	@Modifying
+	@Modifying(clearAutomatically = true)
 	@Query(
 		value = "DELETE FROM coupon_redemptions WHERE coupon_id = :couponId AND user_id = :userId",
 		nativeQuery = true,

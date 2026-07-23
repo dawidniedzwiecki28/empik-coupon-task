@@ -6,6 +6,7 @@ import com.dawidniedzwiecki.coupon.TestcontainersConfiguration
 import com.dawidniedzwiecki.coupon.core.api.CountryCode
 import com.dawidniedzwiecki.coupon.core.api.CouponCode
 import com.dawidniedzwiecki.coupon.core.api.CouponCodeAlreadyExistsException
+import com.dawidniedzwiecki.coupon.core.api.CouponId
 import com.dawidniedzwiecki.coupon.core.api.CouponOperations
 import com.dawidniedzwiecki.coupon.core.api.CreateCouponCommand
 import com.dawidniedzwiecki.coupon.core.api.GeoIpUnavailableException
@@ -27,6 +28,8 @@ import java.util.concurrent.TimeUnit
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 
 /** The primary test: full create/redeem behaviour against a real PostgreSQL, with geo-IP faked. */
 @SpringBootTest
@@ -75,6 +78,31 @@ class CouponOperationsTest @Autowired constructor(
 		assertFailsWith<IllegalArgumentException> { create(code = "ZERO", maxUses = 0) }
 	}
 
+	// --- read ---
+
+	@Test
+	fun `finds a coupon by id, projecting its current state`() {
+		// given
+		val id = create(code = "WIOSNA", maxUses = 3, country = "PL")
+
+		// when
+		val view = operations.findCoupon(id)
+
+		// then
+		assertNotNull(view)
+		assertEquals(id.value, view.id)
+		assertEquals("WIOSNA", view.code)
+		assertEquals("PL", view.country)
+		assertEquals(3, view.maxUses)
+		assertEquals(0, view.currentUses)
+	}
+
+	@Test
+	fun `returns null for an unknown coupon id`() {
+		// expect
+		assertNull(operations.findCoupon(CouponId(UUID.randomUUID())))
+	}
+
 	// --- redemption ---
 
 	@Test
@@ -89,6 +117,19 @@ class CouponOperationsTest @Autowired constructor(
 		assertEquals(RedemptionResult.Success, result)
 		assertEquals(1, coupons.findById(id.value).get().currentUses)
 		assertEquals(1L, redemptions.countByIdCouponId(id.value))
+	}
+
+	@Test
+	fun `redeems case-insensitively — a differently-cased code hits the same coupon`() {
+		// given
+		val id = create(code = "SuMMer")
+
+		// when
+		val result = redeem(code = "summer")
+
+		// then
+		assertEquals(RedemptionResult.Success, result)
+		assertEquals(1, coupons.findById(id.value).get().currentUses)
 	}
 
 	@Test
@@ -180,6 +221,30 @@ class CouponOperationsTest @Autowired constructor(
 		assertEquals(attempts - maxUses, outcomes.count { it == RedemptionResult.LimitReached })
 		assertEquals(maxUses, coupons.findById(id.value).get().currentUses)
 		assertEquals(maxUses.toLong(), redemptions.countByIdCouponId(id.value))
+	}
+
+	@Test
+	fun `admits exactly one redemption when the same user races itself`() {
+		// given — one user, many concurrent attempts, plenty of slots so only the per-user rule can bind
+		val attempts = 50
+		val id = create(code = "SAMEUSER", maxUses = attempts)
+		val user = UUID.randomUUID()
+		val pool = Executors.newFixedThreadPool(16)
+
+		// when — the same user fires all attempts at once
+		val outcomes = try {
+			(1..attempts)
+				.map { pool.submit(Callable { redeem(code = "SAMEUSER", user = user) }) }
+				.map { it.get(30, TimeUnit.SECONDS) }
+		} finally {
+			pool.shutdown()
+		}
+
+		// then — exactly one wins; the rest are rejected as already-redeemed and the counter moves once
+		assertEquals(1, outcomes.count { it == RedemptionResult.Success })
+		assertEquals(attempts - 1, outcomes.count { it == RedemptionResult.AlreadyRedeemedByUser })
+		assertEquals(1, coupons.findById(id.value).get().currentUses)
+		assertEquals(1L, redemptions.countByIdCouponId(id.value))
 	}
 
 	private fun create(code: String, maxUses: Int = 5, country: String = "PL") =

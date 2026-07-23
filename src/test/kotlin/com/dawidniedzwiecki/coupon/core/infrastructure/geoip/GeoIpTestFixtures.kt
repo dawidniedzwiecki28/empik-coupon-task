@@ -15,7 +15,4 @@ object GeoIpTestFixtures {
 
 	fun bundledReader(): DatabaseReader =
 		DatabaseReader.Builder(GZIPInputStream(ByteArrayInputStream(bundledGzBytes()))).build()
-
-	/** A GeoIpDatabase for fakes that fully override resolveCountry, where the wrapped reader is never consulted. */
-	fun dummyDatabase(): GeoIpDatabase = GeoIpDatabase(bundledReader())
 }

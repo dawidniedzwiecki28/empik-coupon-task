@@ -1,6 +1,7 @@
 package com.dawidniedzwiecki.coupon.core.api
 
 import com.google.common.net.InetAddresses
+import java.time.Instant
 import java.util.UUID
 
 /** Two-letter country code, upper-cased — ISO 3166-1 alpha-2 shape, not checked against the assigned list. */
@@ -73,6 +74,16 @@ data class RedeemCouponCommand(
 	val clientIp: IpAddress,
 )
 
+/** Read model for a single coupon — a framework-free projection so the entity never leaks past core.api. */
+data class CouponView(
+	val id: UUID,
+	val code: String,
+	val country: String,
+	val maxUses: Int,
+	val currentUses: Int,
+	val createdAt: Instant,
+)
+
 /** Expected redemption outcomes — returned, not thrown, so the compiler enforces exhaustive HTTP mapping. */
 sealed interface RedemptionResult {
 	data object Success : RedemptionResult
@@ -91,6 +102,10 @@ class InvalidValueException(message: String) : IllegalArgumentException(message)
 
 class CouponCodeAlreadyExistsException(val code: String) :
 	RuntimeException("A coupon with code '$code' already exists")
+
+/** No coupon exists for the given id — used by the read endpoint, where absence is a standard REST 404. */
+class CouponNotFoundException(val id: UUID) :
+	RuntimeException("No coupon exists with id '$id'")
 
 /** Distinct from the CountryNotAllowed outcome: the country could not be determined at all. */
 class GeoIpUnavailableException(val ip: String, cause: Throwable? = null) :

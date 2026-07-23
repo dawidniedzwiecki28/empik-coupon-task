@@ -35,17 +35,18 @@ reviews:
         ProblemDetail via @RestControllerAdvice, never a 200 response carrying an error payload.
     - path: "**/infrastructure/**"
       instructions: >
-        The module's infrastructure: Spring Data JpaRepository interfaces + entities, the
-        transactional redemption executor, and outbound gateway interfaces (e.g. GeoIpResolver)
-        alongside their adapters. Under this module convention, gateway port interfaces MAY live
-        here next to their adapter — do not flag that. CONCURRENCY-CRITICAL: the usage limit must be an
+        The module's infrastructure: Spring Data JpaRepository interfaces + entities, and outbound
+        gateway interfaces (e.g. GeoIpResolver) alongside their adapters (e.g. DatabaseGeoIpResolver).
+        Under this module convention, gateway port interfaces MAY live here next to their adapter — do
+        not flag that. CONCURRENCY-CRITICAL: the usage limit must be an
         atomic conditional UPDATE (... WHERE current_uses < max_uses) acting on the affected
         row / returned row. FLAG any read-then-write or check-then-act on the counter, any
         in-memory / JVM lock (synchronized, ReentrantLock), and any use of COUNT(*) over
         redemptions to enforce the limit. Per-user uniqueness must be enforced by the
         UNIQUE(coupon_id, user_id) constraint (insert-and-catch-duplicate), not a
-        SELECT-then-INSERT. The external geo-IP call must NOT happen inside the write
-        transaction — flag any transaction held across the HTTP call.
+        SELECT-then-INSERT. The country lookup is a LOCAL in-memory database read (no network/HTTP
+        call) and INTENTIONALLY runs inside the redemption transaction — do NOT flag that; there is
+        no external geo-IP call to hold a transaction across.
     - path: "**/*Test*.*"
       instructions: >
         Tests must follow Arrange-Act-Assert, marked with `// given`, `// when`, `// then`

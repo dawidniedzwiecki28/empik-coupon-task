@@ -65,6 +65,15 @@ expect "non-positive maxUses"              400 "$(create "BADMAX$RUN" 0 US)"
 expect "malformed country"                 400 "$(create "BADCTY$RUN" 1 XYZ)"
 hr
 
+# ── 1b. read a coupon back via its Location header ──────────────────────
+echo "READ"
+loc=$(curl -s -D - -o /dev/null -X POST "$BASE/api/coupons" -H 'Content-Type: application/json' \
+  -d "{\"code\":\"READ$RUN\",\"maxUses\":3,\"country\":\"US\"}" \
+  | awk 'tolower($1)=="location:"{print $2}' | tr -d '\r')
+expect "GET a created coupon"              200 "$(curl -s -o /dev/null -w '%{http_code}' "$BASE$loc")"
+expect "GET an unknown coupon"             404 "$(curl -s -o /dev/null -w '%{http_code}' "$BASE/api/coupons/$(uuidgen)")"
+hr
+
 # ── 2. redeem: every outcome ────────────────────────────────────────────
 echo "REDEEM"
 expect "success"                           200 "$(redeem "SUMMER$RUN" "$(uuidgen)" "$US")"
@@ -77,7 +86,7 @@ expect "fills the last slot"               200 "$(redeem "ONCE$RUN" "$(uuidgen)"
 expect "limit reached"                     409 "$(redeem "ONCE$RUN" "$(uuidgen)" "$US")"
 expect "unknown coupon"                    404 "$(redeem "NOPE$RUN" "$(uuidgen)" "$US")"
 expect "malformed userId"                  400 "$(redeem "SUMMER$RUN" "not-a-uuid" "$US")"
-expect "geo unavailable (loopback IP)"     503 "$(redeem "SUMMER$RUN" "$(uuidgen)")"
+expect "geo unavailable (loopback IP)"     422 "$(redeem "SUMMER$RUN" "$(uuidgen)")"
 create "POLAND$RUN" 5 PL >/dev/null
 expect "wrong country"                     403 "$(redeem "POLAND$RUN" "$(uuidgen)" "$US")"
 body=$(curl -s -X POST "$BASE/api/coupons/redemptions" -H 'Content-Type: application/json' \

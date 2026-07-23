@@ -5,6 +5,7 @@ import com.dawidniedzwiecki.coupon.core.api.CouponCode
 import com.dawidniedzwiecki.coupon.core.api.CouponCodeAlreadyExistsException
 import com.dawidniedzwiecki.coupon.core.api.CouponId
 import com.dawidniedzwiecki.coupon.core.api.CouponOperations
+import com.dawidniedzwiecki.coupon.core.api.CouponView
 import com.dawidniedzwiecki.coupon.core.api.CreateCouponCommand
 import com.dawidniedzwiecki.coupon.core.api.GeoIpUnavailableException
 import com.dawidniedzwiecki.coupon.core.api.IpAddress
@@ -24,7 +25,9 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Import
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
+import java.time.Instant
 import java.util.UUID
 
 /**
@@ -58,9 +61,10 @@ class CouponControllerTest @Autowired constructor(
 		// when
 		val result = createRequest("""{"code":"wiosna","maxUses":100,"country":"pl"}""")
 
-		// then
+		// then — 201 with the id in the body and a Location header pointing at the new resource
 		result.andExpect {
 			status { isCreated() }
+			header { string("Location", "/api/coupons/$id") }
 			jsonPath("$.couponId") { value(id.toString()) }
 		}
 		verify { operations.createCoupon(CreateCouponCommand(CouponCode.of("WIOSNA"), 100, CountryCode.of("PL"))) }
@@ -105,6 +109,40 @@ class CouponControllerTest @Autowired constructor(
 		}
 	}
 
+	// --- read ---
+
+	@Test
+	fun `get returns 200 with the coupon state`() {
+		// given
+		val id = UUID.randomUUID()
+		every { operations.findCoupon(CouponId(id)) } returns
+			CouponView(id, "WIOSNA", "PL", maxUses = 100, currentUses = 7, createdAt = Instant.parse("2026-01-01T00:00:00Z"))
+
+		// expect
+		mockMvc.get("/api/coupons/$id").andExpect {
+			status { isOk() }
+			jsonPath("$.id") { value(id.toString()) }
+			jsonPath("$.code") { value("WIOSNA") }
+			jsonPath("$.country") { value("PL") }
+			jsonPath("$.maxUses") { value(100) }
+			jsonPath("$.currentUses") { value(7) }
+		}
+	}
+
+	@Test
+	fun `get returns a 404 problem for an unknown id`() {
+		// given
+		val id = UUID.randomUUID()
+		every { operations.findCoupon(CouponId(id)) } returns null
+
+		// expect
+		mockMvc.get("/api/coupons/$id").andExpect {
+			status { isNotFound() }
+			content { contentType(MediaType.APPLICATION_PROBLEM_JSON) }
+			jsonPath("$.type") { value("urn:coupon:coupon-not-found") }
+		}
+	}
+
 	// --- redeem: outcome -> status mapping ---
 
 	@Test
@@ -136,26 +174,28 @@ class CouponControllerTest @Autowired constructor(
 	}
 
 	@Test
-	fun `redeem maps LimitReached to a 409 problem`() {
+	fun `redeem maps LimitReached to a 409 problem with a distinct type`() {
 		// given
 		every { operations.redeem(any()) } returns RedemptionResult.LimitReached
 
-		// expect
+		// expect — same status as already-redeemed, but a machine-distinguishable type
 		redeemRequest().andExpect {
 			status { isConflict() }
 			content { contentType(MediaType.APPLICATION_PROBLEM_JSON) }
+			jsonPath("$.type") { value("urn:coupon:limit-reached") }
 		}
 	}
 
 	@Test
-	fun `redeem maps AlreadyRedeemedByUser to a 409 problem`() {
+	fun `redeem maps AlreadyRedeemedByUser to a 409 problem with a distinct type`() {
 		// given
 		every { operations.redeem(any()) } returns RedemptionResult.AlreadyRedeemedByUser
 
-		// expect
+		// expect — the other 409, told apart from limit-reached by its type
 		redeemRequest().andExpect {
 			status { isConflict() }
 			content { contentType(MediaType.APPLICATION_PROBLEM_JSON) }
+			jsonPath("$.type") { value("urn:coupon:already-redeemed") }
 		}
 	}
 
@@ -174,14 +214,15 @@ class CouponControllerTest @Autowired constructor(
 	}
 
 	@Test
-	fun `redeem maps a geo-IP failure to a 503 problem`() {
+	fun `redeem maps a geo-IP failure to a 422 problem`() {
 		// given
 		every { operations.redeem(any()) } throws GeoIpUnavailableException("1.1.1.1")
 
-		// expect
+		// expect — the caller's IP can't be mapped to a country: unprocessable, not a server outage
 		redeemRequest().andExpect {
-			status { isServiceUnavailable() }
+			status { isUnprocessableEntity() }
 			content { contentType(MediaType.APPLICATION_PROBLEM_JSON) }
+			jsonPath("$.type") { value("urn:coupon:country-unresolved") }
 		}
 	}
 
