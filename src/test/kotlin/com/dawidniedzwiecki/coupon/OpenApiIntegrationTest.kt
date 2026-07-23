@@ -21,8 +21,8 @@ class OpenApiIntegrationTest @Autowired constructor(
 		mockMvc.get("/v3/api-docs").andExpect {
 			status { isOk() }
 			jsonPath("$.info.title") { value("Coupon Service API") }
-			jsonPath("$.paths['/api/coupons']") { exists() }
-			jsonPath("$.paths['/api/coupons/redemptions']") { exists() }
+			jsonPath("$.paths['/api/coupons'].post") { exists() }
+			jsonPath("$.paths['/api/coupons/redemptions'].post") { exists() }
 		}
 	}
 }
