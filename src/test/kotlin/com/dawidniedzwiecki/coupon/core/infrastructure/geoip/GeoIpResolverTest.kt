@@ -33,17 +33,21 @@ class GeoIpResolverTest {
 
 	@Test
 	fun `fails closed when the lookup raises an IO error`() {
+		// given
 		val reader = mock<DatabaseReader> { on { country(any()) } doThrow IOException("read failed") }
 
+		// expect
 		assertFailsWith<GeoIpUnavailableException> { resolverBackedBy(reader).resolveCountry(IpAddress.of("8.8.8.8")) }
 	}
 
 	@Test
 	fun `fails closed when the address maps to no country code`() {
+		// given
 		val country = mock<Country> { on { isoCode() } doReturn null }
 		val response = mock<CountryResponse> { on { country() } doReturn country }
 		val reader = mock<DatabaseReader> { on { country(any()) } doReturn response }
 
+		// expect
 		assertFailsWith<GeoIpUnavailableException> { resolverBackedBy(reader).resolveCountry(IpAddress.of("8.8.8.8")) }
 	}
 
