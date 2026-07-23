@@ -23,6 +23,8 @@ import org.springframework.test.context.DynamicPropertySource
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.post
 import java.util.UUID
+import java.util.concurrent.Executors
+import kotlin.test.assertEquals
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -45,6 +47,8 @@ class CouponRestIntegrationTest @Autowired constructor(
 		@DynamicPropertySource
 		fun geoIpProperties(registry: DynamicPropertyRegistry) {
 			registry.add("geoip.base-url") { geoIp.baseUrl() }
+			// The suite drives country via ipOverride / X-Forwarded-For, so it runs as if behind a trusted proxy.
+			registry.add("coupon.rest.trust-client-ip") { true }
 		}
 	}
 
@@ -143,6 +147,31 @@ class CouponRestIntegrationTest @Autowired constructor(
 		// expect
 		redeem(code = "ONCE", userId = UUID.randomUUID(), ip = "4.4.4.4").andExpect { status { isOk() } }
 		redeem(code = "ONCE", userId = UUID.randomUUID(), ip = "4.4.4.4").andExpect { status { isConflict() } }
+	}
+
+	@Test
+	fun `exactly maxUses redemptions succeed under concurrent load`() {
+		// given
+		val maxUses = 5
+		val attempts = 20
+		createCoupon(code = "RUSH", maxUses = maxUses, country = "PL")
+		stubCountry(ip = "8.8.4.4", country = "PL")
+
+		// when — distinct users race for the limited slots
+		val pool = Executors.newFixedThreadPool(attempts)
+		val statuses = try {
+			(1..attempts)
+				.map { pool.submit<Int> { redeem("RUSH", UUID.randomUUID(), "8.8.4.4").andReturn().response.status } }
+				.map { it.get() }
+		} finally {
+			pool.shutdown()
+		}
+
+		// then — the atomic increment lets through exactly maxUses; the rest are rejected as full
+		assertEquals(maxUses, statuses.count { it == 200 })
+		assertEquals(attempts - maxUses, statuses.count { it == 409 })
+		val couponId = couponRepository.findByCode("RUSH")!!.id
+		assertEquals(maxUses.toLong(), redemptionRepository.countByIdCouponId(couponId))
 	}
 
 	@Test

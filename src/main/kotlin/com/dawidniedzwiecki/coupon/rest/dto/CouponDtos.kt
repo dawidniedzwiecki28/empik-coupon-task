@@ -12,7 +12,7 @@ data class CreateCouponRequest(
 
 data class CreateCouponResponse(val couponId: UUID)
 
-/** [ipOverride] lets a caller supply the IP directly (useful for testing behind proxies / from localhost). */
+/** [ipOverride] lets a caller supply the IP directly; honored only when `coupon.rest.trust-client-ip` is enabled. */
 data class RedeemCouponRequest(
 	@field:NotBlank val code: String,
 	val userId: UUID,

@@ -4,7 +4,6 @@ import com.dawidniedzwiecki.coupon.core.api.CountryCode
 import com.dawidniedzwiecki.coupon.core.api.CouponCode
 import com.dawidniedzwiecki.coupon.core.api.CouponOperations
 import com.dawidniedzwiecki.coupon.core.api.CreateCouponCommand
-import com.dawidniedzwiecki.coupon.core.api.IpAddress
 import com.dawidniedzwiecki.coupon.core.api.RedeemCouponCommand
 import com.dawidniedzwiecki.coupon.core.api.RedemptionResult
 import com.dawidniedzwiecki.coupon.core.api.UserId
@@ -23,7 +22,10 @@ import org.springframework.web.bind.annotation.RestController
 
 @RestController
 @RequestMapping("/api/coupons")
-class CouponController(private val couponOperations: CouponOperations) {
+class CouponController(
+	private val couponOperations: CouponOperations,
+	private val clientIpResolver: ClientIpResolver,
+) {
 
 	@PostMapping
 	fun create(@Valid @RequestBody request: CreateCouponRequest): ResponseEntity<CreateCouponResponse> {
@@ -38,7 +40,7 @@ class CouponController(private val couponOperations: CouponOperations) {
 		val command = RedeemCouponCommand(
 			code = CouponCode.of(request.code),
 			userId = UserId(request.userId),
-			clientIp = resolveClientIp(request.ipOverride, httpRequest),
+			clientIp = clientIpResolver.resolve(request.ipOverride, httpRequest),
 		)
 		return when (val result = couponOperations.redeem(command)) {
 			RedemptionResult.Success -> ResponseEntity.ok().build()
@@ -55,13 +57,6 @@ class CouponController(private val couponOperations: CouponOperations) {
 					mapOf("requiredCountry" to result.requiredCountry, "callerCountry" to result.callerCountry),
 				)
 		}
-	}
-
-	private fun resolveClientIp(override: String?, request: HttpServletRequest): IpAddress {
-		val raw = override
-			?: request.getHeader("X-Forwarded-For")?.substringBefore(",")?.trim()?.takeIf { it.isNotEmpty() }
-			?: request.remoteAddr
-		return IpAddress.of(raw)
 	}
 
 	private fun problem(status: HttpStatus, detail: String, properties: Map<String, Any> = emptyMap()): ResponseEntity<Any> {
