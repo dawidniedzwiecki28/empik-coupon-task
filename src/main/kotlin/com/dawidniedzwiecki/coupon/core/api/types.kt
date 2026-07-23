@@ -2,7 +2,7 @@ package com.dawidniedzwiecki.coupon.core.api
 
 import java.util.UUID
 
-/** ISO 3166-1 alpha-2 country code, normalized upper-case; invalid values cannot be constructed. */
+/** Two-letter country code, upper-cased — ISO 3166-1 alpha-2 shape, not checked against the assigned list. */
 @JvmInline
 value class CountryCode private constructor(val value: String) {
 	companion object {
@@ -19,10 +19,7 @@ value class CountryCode private constructor(val value: String) {
 	override fun toString(): String = value
 }
 
-/**
- * A syntactically valid IP address (IPv4 or IPv6), validated on construction so an invalid
- * address cannot reach the geo-IP resolver. This is a syntactic guard, not full RFC validation.
- */
+/** A syntactically valid IPv4/IPv6 address — a syntactic guard, not full RFC validation. */
 @JvmInline
 value class IpAddress private constructor(val value: String) {
 	companion object {
@@ -69,11 +66,11 @@ value class IpAddress private constructor(val value: String) {
 	override fun toString(): String = value
 }
 
-/** A coupon code, normalized (trimmed + upper-case) so uniqueness and lookups are case-insensitive. */
+/** Coupon code, trimmed and upper-cased so uniqueness is case-insensitive. */
 @JvmInline
 value class CouponCode private constructor(val value: String) {
 	companion object {
-		/** Matches the coupons.code column width; not a runtime knob (raising it needs a migration). */
+		/** Matches the coupons.code column width; raising it needs a migration. */
 		const val MAX_LENGTH = 64
 
 		fun of(raw: String): CouponCode {
@@ -88,11 +85,10 @@ value class CouponCode private constructor(val value: String) {
 	override fun toString(): String = value
 }
 
-/** Opaque, caller-supplied user identifier — a UUID we mandate, so it is non-PII. */
+/** Caller-supplied user identifier; a mandated UUID, so it is opaque and non-PII. */
 @JvmInline
 value class UserId(val value: UUID)
 
-/** Identifier of a coupon. */
 @JvmInline
 value class CouponId(val value: UUID)
 
@@ -109,10 +105,7 @@ data class RedeemCouponCommand(
 	val clientIp: IpAddress,
 )
 
-/**
- * Expected redemption outcomes, modelled as an exhaustive sealed type (returned, not thrown)
- * so the REST layer maps each to an HTTP status and the compiler enforces total handling.
- */
+/** Expected redemption outcomes — returned, not thrown, so the compiler enforces exhaustive HTTP mapping. */
 sealed interface RedemptionResult {
 	data object Success : RedemptionResult
 
@@ -125,17 +118,12 @@ sealed interface RedemptionResult {
 	data object AlreadyRedeemedByUser : RedemptionResult
 }
 
-/**
- * A request value (coupon code, country, IP) was rejected at construction. Extends
- * IllegalArgumentException so the REST edge can map it to 400 without swallowing unrelated
- * IllegalArgumentExceptions raised by a defect deeper in the stack.
- */
+/** A request value was rejected at construction; distinct from a stray IllegalArgumentException so the edge maps only this to 400. */
 class InvalidValueException(message: String) : IllegalArgumentException(message)
 
-/** Thrown when creating a coupon whose normalized code already exists. */
 class CouponCodeAlreadyExistsException(val code: String) :
 	RuntimeException("A coupon with code '$code' already exists")
 
-/** Caller's country could not be resolved from their IP — distinct from the CountryNotAllowed outcome. */
+/** Distinct from the CountryNotAllowed outcome: the country could not be determined at all. */
 class GeoIpUnavailableException(val ip: String, cause: Throwable? = null) :
 	RuntimeException("Unable to resolve country for IP '$ip'", cause)

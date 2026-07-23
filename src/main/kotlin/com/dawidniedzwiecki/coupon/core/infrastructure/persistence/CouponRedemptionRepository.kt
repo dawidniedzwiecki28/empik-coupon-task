@@ -8,7 +8,7 @@ import java.util.UUID
 
 interface CouponRedemptionRepository : JpaRepository<CouponRedemptionEntity, CouponRedemptionId> {
 
-	/** Insert-if-absent: returns 1 when inserted, 0 when this (coupon_id, user_id) already exists — no exception. */
+	/** Returns 1 when inserted, 0 when the pair already exists — never throws on conflict. */
 	@Modifying
 	@Query(
 		value = "INSERT INTO coupon_redemptions (coupon_id, user_id, redeemed_at) VALUES (:couponId, :userId, :redeemedAt) " +
@@ -24,6 +24,6 @@ interface CouponRedemptionRepository : JpaRepository<CouponRedemptionEntity, Cou
 	)
 	fun deleteRedemption(couponId: UUID, userId: UUID)
 
-	/** Scoped per-coupon redemption count (avoids whole-table counts). */
+	/** Redemption count for a single coupon. */
 	fun countByIdCouponId(couponId: UUID): Long
 }

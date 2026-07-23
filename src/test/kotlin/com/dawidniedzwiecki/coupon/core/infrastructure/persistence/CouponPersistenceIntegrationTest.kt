@@ -1,8 +1,6 @@
 package com.dawidniedzwiecki.coupon.core.infrastructure.persistence
 
 import com.dawidniedzwiecki.coupon.TestcontainersConfiguration
-import com.dawidniedzwiecki.coupon.core.api.RedemptionResult
-import com.dawidniedzwiecki.coupon.core.domain.CouponRedemptionExecutor
 import org.hibernate.exception.ConstraintViolationException
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -13,18 +11,16 @@ import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
 import java.util.UUID
-import java.util.concurrent.Callable
-import java.util.concurrent.Executors
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
+/** Repository-level guarantees against a real database; full redemption flows live in CouponOperationsIntegrationTest. */
 @SpringBootTest
 @Import(TestcontainersConfiguration::class)
 class CouponPersistenceIntegrationTest @Autowired constructor(
 	private val couponRepository: CouponRepository,
 	private val redemptionRepository: CouponRedemptionRepository,
-	private val executor: CouponRedemptionExecutor,
 ) {
 
 	@BeforeEach
@@ -52,44 +48,6 @@ class CouponPersistenceIntegrationTest @Autowired constructor(
 		// expect
 		assertEquals(1, couponRepository.incrementUsesIfBelowMax(couponId))
 		assertEquals(0, couponRepository.incrementUsesIfBelowMax(couponId))
-	}
-
-	@Test
-	fun `exactly maxUses redemptions succeed under parallel load`() {
-		// given
-		val maxUses = 20
-		val attempts = 100
-		val couponId = seedCoupon(code = "RUSH", maxUses = maxUses)
-		val pool = Executors.newFixedThreadPool(16)
-
-		// when
-		val outcomes = (1..attempts)
-			.map { pool.submit(Callable { executor.consume(couponId, UUID.randomUUID()) }) }
-			.map { it.get() }
-		pool.shutdown()
-
-		// then
-		assertEquals(maxUses, outcomes.count { it == RedemptionResult.Success })
-		assertEquals(attempts - maxUses, outcomes.count { it == RedemptionResult.LimitReached })
-		assertEquals(maxUses, couponRepository.findById(couponId).get().currentUses)
-		assertEquals(maxUses.toLong(), redemptionRepository.countByIdCouponId(couponId))
-	}
-
-	@Test
-	fun `the same user cannot redeem the same coupon twice`() {
-		// given
-		val couponId = seedCoupon(code = "ONCE", maxUses = 5)
-		val user = UUID.randomUUID()
-
-		// when
-		val first = executor.consume(couponId, user)
-		val second = executor.consume(couponId, user)
-
-		// then
-		assertEquals(RedemptionResult.Success, first)
-		assertEquals(RedemptionResult.AlreadyRedeemedByUser, second)
-		assertEquals(1, couponRepository.findById(couponId).get().currentUses)
-		assertEquals(1L, redemptionRepository.countByIdCouponId(couponId))
 	}
 
 	@Test

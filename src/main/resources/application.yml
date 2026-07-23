@@ -7,7 +7,7 @@ spring:
     password: ${DB_PASSWORD:coupon}
   jpa:
     hibernate:
-      ddl-auto: validate  # Flyway owns the schema; validate only checks the mapping matches it.
+      ddl-auto: validate  # Flyway owns the schema; validate only checks the mapping against it.
     open-in-view: false
     properties:
       hibernate:
@@ -17,15 +17,13 @@ spring:
     enabled: true
   mvc:
     problemdetails:
-      enabled: true  # validation / not-readable errors return RFC 9457 ProblemDetail
+      enabled: true  # framework errors (validation, unreadable body) also render as RFC 9457 ProblemDetail
 
 geoip:
-  # HTTPS so a spoofed response can't grant a country-restricted redemption.
-  base-url: ${GEOIP_BASE_URL:https://ipapi.co}
-  timeout: ${GEOIP_TIMEOUT:2s}
-  cache:
-    maximum-size: 50000
-    ttl: 24h
+  # Bundled DB-IP Lite snapshot (CC-BY-4.0; see NOTICE). Set GEOIP_DATABASE_PATH to an external .mmdb.
+  database-path: ${GEOIP_DATABASE_PATH:}
+  # Set GEOIP_UPDATE_URL to auto-refresh the database on startup and on this cron; unset = bundled only.
+  update-cron: ${GEOIP_UPDATE_CRON:0 0 3 * * *}
 
 management:
   endpoints:

@@ -32,7 +32,6 @@ class CouponEntity(
 		/** Unique constraint on `code`; must match `uq_coupons_code` in V1__create_coupons.sql. */
 		const val UNIQUE_CODE_CONSTRAINT = "uq_coupons_code"
 
-		/** Builds a new coupon from a create command, enforcing its construction invariants. */
 		fun create(command: CreateCouponCommand, clock: Clock): CouponEntity {
 			require(command.maxUses > 0) { "maxUses must be positive" }
 			return CouponEntity(

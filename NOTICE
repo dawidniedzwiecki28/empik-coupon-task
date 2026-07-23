@@ -1,0 +1,10 @@
+This product includes IP geolocation data created by DB-IP.com.
+
+IP-to-Country Lite database
+Source: https://db-ip.com/db/download/ip-to-country-lite
+License: Creative Commons Attribution 4.0 International (CC-BY-4.0)
+         https://creativecommons.org/licenses/by/4.0/
+
+The database file (src/main/resources/geoip/dbip-country-lite.mmdb.gz) is a
+redistributed snapshot. Attribution "IP Geolocation by DB-IP" is required by
+the license. DB-IP publishes updated databases monthly.

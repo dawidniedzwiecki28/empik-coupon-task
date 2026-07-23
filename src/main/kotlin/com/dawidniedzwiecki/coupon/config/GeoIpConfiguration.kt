@@ -1,43 +1,41 @@
 package com.dawidniedzwiecki.coupon.config
 
-import com.dawidniedzwiecki.coupon.core.api.CountryCode
+import com.dawidniedzwiecki.coupon.core.infrastructure.geoip.GeoIpDatabase
 import com.dawidniedzwiecki.coupon.core.infrastructure.geoip.GeoIpProperties
-import com.github.benmanes.caffeine.cache.Cache
-import com.github.benmanes.caffeine.cache.Caffeine
+import com.maxmind.db.Reader
+import com.maxmind.geoip2.DatabaseReader
+import org.slf4j.LoggerFactory
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
-import org.springframework.http.client.SimpleClientHttpRequestFactory
-import org.springframework.web.client.RestClient
-import java.net.URI
+import java.io.File
+import java.util.zip.GZIPInputStream
 
 @Configuration
 @EnableConfigurationProperties(GeoIpProperties::class)
 class GeoIpConfiguration {
 
+	private val log = LoggerFactory.getLogger(javaClass)
+
+	/** The startup baseline database: an external file if configured, else the bundled snapshot. */
 	@Bean
-	fun geoIpRestClient(properties: GeoIpProperties): RestClient {
-		requireSecureBaseUrl(properties.baseUrl)
-		val requestFactory = SimpleClientHttpRequestFactory().apply {
-			setConnectTimeout(properties.timeout)
-			setReadTimeout(properties.timeout)
+	fun geoIpDatabase(properties: GeoIpProperties): GeoIpDatabase = GeoIpDatabase(loadBaseline(properties))
+
+	private fun loadBaseline(properties: GeoIpProperties): DatabaseReader {
+		val externalPath = properties.databasePath
+		if (!externalPath.isNullOrBlank()) {
+			log.info("Loading geo-IP database from external file: {}", externalPath)
+			// MEMORY, not the Builder(File) default MEMORY_MAPPED, so a hot-swapped reader holds no file handle.
+			return DatabaseReader.Builder(File(externalPath)).fileMode(Reader.FileMode.MEMORY).build()
 		}
-		return RestClient.builder().baseUrl(properties.baseUrl).requestFactory(requestFactory).build()
+		log.info("Loading bundled geo-IP database: {}", BUNDLED_DATABASE)
+		val resource = javaClass.getResourceAsStream(BUNDLED_DATABASE)
+			?: error("Bundled geo-IP database not found on classpath: $BUNDLED_DATABASE")
+		return resource.use { gz -> DatabaseReader.Builder(GZIPInputStream(gz)).build() }
 	}
 
-	@Bean
-	fun geoIpCache(properties: GeoIpProperties): Cache<String, CountryCode> =
-		Caffeine.newBuilder()
-			.maximumSize(properties.cache.maximumSize)
-			.expireAfterWrite(properties.cache.ttl)
-			.build()
-
-	/** Client IPs and country lookups must not travel in cleartext; only allow http for local/test hosts. */
-	private fun requireSecureBaseUrl(baseUrl: String) {
-		val uri = URI.create(baseUrl)
-		val localHost = uri.host in setOf("localhost", "127.0.0.1", "[::1]")
-		require(uri.scheme == "https" || (uri.scheme == "http" && localHost)) {
-			"geoip.base-url must use HTTPS (was: $baseUrl)"
-		}
+	private companion object {
+		/** DB-IP IP-to-Country Lite (CC-BY-4.0), committed gzipped; see NOTICE. */
+		const val BUNDLED_DATABASE = "/geoip/dbip-country-lite.mmdb.gz"
 	}
 }

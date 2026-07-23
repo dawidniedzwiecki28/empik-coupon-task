@@ -34,8 +34,8 @@ dependencies {
 	implementation("org.flywaydb:flyway-database-postgresql")
 	implementation("org.jetbrains.kotlin:kotlin-reflect")
 	implementation("tools.jackson.module:jackson-module-kotlin")
-	// Per-instance geo-IP cache (swappable for Redis later, behind the GeoIpResolver port).
-	implementation("com.github.ben-manes.caffeine:caffeine")
+	// Embedded IP→country lookups from a local .mmdb (no per-request network call/quota), behind the GeoIpResolver port.
+	implementation("com.maxmind.geoip2:geoip2:5.2.0")
 	runtimeOnly("org.postgresql:postgresql")
 
 	testImplementation("org.springframework.boot:spring-boot-starter-actuator-test")
@@ -46,7 +46,6 @@ dependencies {
 	testImplementation("org.springframework.boot:spring-boot-testcontainers")
 	testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
 	testImplementation("org.mockito.kotlin:mockito-kotlin:6.0.0")
-	testImplementation("org.wiremock:wiremock-standalone:3.13.1")
 	testImplementation("org.testcontainers:testcontainers-junit-jupiter")
 	testImplementation("org.testcontainers:testcontainers-postgresql")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
@@ -95,6 +94,7 @@ tasks.jacocoTestReport {
 					"**/CouponEntity*",
 					"**/CouponRedemptionEntity*",
 					"**/CouponRedemptionId*",
+					"**/config/**",
 					"**/GeoIpProperties*",
 					"**/rest/dto/**",
 				)

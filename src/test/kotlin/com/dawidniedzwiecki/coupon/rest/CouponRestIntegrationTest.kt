@@ -2,62 +2,54 @@ package com.dawidniedzwiecki.coupon.rest
 
 import com.dawidniedzwiecki.coupon.TestcontainersConfiguration
 import com.dawidniedzwiecki.coupon.core.api.CountryCode
+import com.dawidniedzwiecki.coupon.core.api.GeoIpUnavailableException
+import com.dawidniedzwiecki.coupon.core.api.IpAddress
+import com.dawidniedzwiecki.coupon.core.infrastructure.geoip.GeoIpDatabase
+import com.dawidniedzwiecki.coupon.core.infrastructure.geoip.GeoIpResolver
+import com.dawidniedzwiecki.coupon.core.infrastructure.geoip.GeoIpTestFixtures
 import com.dawidniedzwiecki.coupon.core.infrastructure.persistence.CouponRedemptionRepository
 import com.dawidniedzwiecki.coupon.core.infrastructure.persistence.CouponRepository
-import com.github.benmanes.caffeine.cache.Cache
-import com.github.tomakehurst.wiremock.WireMockServer
-import com.github.tomakehurst.wiremock.client.WireMock.aResponse
-import com.github.tomakehurst.wiremock.client.WireMock.get
-import com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo
-import com.github.tomakehurst.wiremock.core.WireMockConfiguration.options
-import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.boot.test.context.TestConfiguration
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
+import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Import
+import org.springframework.context.annotation.Primary
 import org.springframework.http.MediaType
-import org.springframework.test.context.DynamicPropertyRegistry
-import org.springframework.test.context.DynamicPropertySource
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.post
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import kotlin.test.assertEquals
 
-@SpringBootTest
+@SpringBootTest(properties = ["coupon.rest.trust-client-ip=true"]) // run as if behind a trusted, IP-forwarding proxy
 @AutoConfigureMockMvc
-@Import(TestcontainersConfiguration::class)
+@Import(TestcontainersConfiguration::class, CouponRestIntegrationTest.GeoIpTestConfig::class)
 class CouponRestIntegrationTest @Autowired constructor(
 	private val mockMvc: MockMvc,
 	private val couponRepository: CouponRepository,
 	private val redemptionRepository: CouponRedemptionRepository,
-	private val geoIpCache: Cache<String, CountryCode>,
+	private val geoIp: FakeGeoIpResolver,
 ) {
 
-	companion object {
-		private val geoIp = WireMockServer(options().dynamicPort()).apply { start() }
-
-		@JvmStatic
-		@AfterAll
-		fun stopGeoIp() = geoIp.stop()
-
-		@JvmStatic
-		@DynamicPropertySource
-		fun geoIpProperties(registry: DynamicPropertyRegistry) {
-			registry.add("geoip.base-url") { geoIp.baseUrl() }
-			// The suite drives country via ipOverride / X-Forwarded-For, so it runs as if behind a trusted proxy.
-			registry.add("coupon.rest.trust-client-ip") { true }
-		}
+	@TestConfiguration
+	class GeoIpTestConfig {
+		// Replaces the real database-backed resolver so the suite controls each IP's country directly.
+		@Bean
+		@Primary
+		fun fakeGeoIpResolver(): FakeGeoIpResolver = FakeGeoIpResolver()
 	}
 
 	@BeforeEach
 	fun reset() {
 		redemptionRepository.deleteAll()
 		couponRepository.deleteAll()
-		geoIp.resetAll()
-		geoIpCache.invalidateAll()
+		geoIp.reset()
 	}
 
 	@Test
@@ -170,7 +162,7 @@ class CouponRestIntegrationTest @Autowired constructor(
 		val statuses = try {
 			(1..attempts)
 				.map { pool.submit<Int> { redeem("RUSH", UUID.randomUUID(), "8.8.4.4").andReturn().response.status } }
-				.map { it.get() }
+				.map { it.get(30, TimeUnit.SECONDS) }
 		} finally {
 			pool.shutdown()
 		}
@@ -186,7 +178,7 @@ class CouponRestIntegrationTest @Autowired constructor(
 	fun `returns 503 when geo-IP is unavailable`() {
 		// given
 		createCoupon(code = "WIOSNA", maxUses = 3, country = "PL")
-		geoIp.stubFor(get(urlPathEqualTo("/5.5.5.5/country/")).willReturn(aResponse().withStatus(500)))
+		geoIp.fail(ip = "5.5.5.5")
 
 		// expect
 		redeem(code = "WIOSNA", userId = UUID.randomUUID(), ip = "5.5.5.5")
@@ -208,7 +200,7 @@ class CouponRestIntegrationTest @Autowired constructor(
 		createCoupon(code = "WIOSNA", maxUses = 3, country = "PL")
 		stubCountry(ip = "9.9.9.9", country = "PL")
 
-		// expect — first hop of X-Forwarded-For is used when no override is supplied
+		// expect — the first X-Forwarded-For hop is used as the caller IP
 		mockMvc.post("/api/coupons/redemptions") {
 			contentType = MediaType.APPLICATION_JSON
 			headers { add("X-Forwarded-For", "9.9.9.9, 10.0.0.1") }
@@ -239,10 +231,36 @@ class CouponRestIntegrationTest @Autowired constructor(
 	private fun redeem(code: String, userId: UUID, ip: String) =
 		mockMvc.post("/api/coupons/redemptions") {
 			contentType = MediaType.APPLICATION_JSON
-			content = """{"code":"$code","userId":"$userId","ipOverride":"$ip"}"""
+			headers { add("X-Forwarded-For", ip) } // trust-client-ip is enabled for this suite
+			content = """{"code":"$code","userId":"$userId"}"""
 		}
 
-	private fun stubCountry(ip: String, country: String) {
-		geoIp.stubFor(get(urlPathEqualTo("/$ip/country/")).willReturn(aResponse().withStatus(200).withBody(country)))
+	private fun stubCountry(ip: String, country: String) = geoIp.put(ip, country)
+}
+
+/**
+ * In-memory geo-IP resolver the REST suite drives per test; unmapped or explicitly-failed IPs fail
+ * closed. Subclasses the concrete resolver (no interface); the bundled database is never consulted.
+ */
+class FakeGeoIpResolver : GeoIpResolver(GeoIpDatabase(GeoIpTestFixtures.bundledReader())) {
+	private val countries = ConcurrentHashMap<String, CountryCode>()
+	private val unavailable = ConcurrentHashMap.newKeySet<String>()
+
+	fun put(ip: String, country: String) {
+		countries[ip] = CountryCode.of(country)
+	}
+
+	fun fail(ip: String) {
+		unavailable += ip
+	}
+
+	fun reset() {
+		countries.clear()
+		unavailable.clear()
+	}
+
+	override fun resolveCountry(ip: IpAddress): CountryCode {
+		if (ip.value in unavailable) throw GeoIpUnavailableException(ip.value)
+		return countries[ip.value] ?: throw GeoIpUnavailableException(ip.value)
 	}
 }
