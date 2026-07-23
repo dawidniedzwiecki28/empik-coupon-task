@@ -15,6 +15,9 @@ RUN ./gradlew --no-daemon clean bootJar -x test
 FROM eclipse-temurin:21-jre AS runtime
 WORKDIR /app
 # curl is only for the healthcheck below; drop the apt lists to keep the layer small.
+# Intentionally not pinning the curl version (DL3008): apt pins on a rolling Ubuntu base self-break once
+# the patch release is superseded and dropped from the archive. Reproducibility comes from the base tag.
+# hadolint ignore=DL3008
 RUN apt-get update \
 	&& apt-get install -y --no-install-recommends curl \
 	&& rm -rf /var/lib/apt/lists/* \
