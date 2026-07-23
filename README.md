@@ -97,7 +97,8 @@ config           Spring wiring
   without value. The geo-IP resolver follows the same principle — one concrete class, no interface,
   since its only other "implementation" would be a test double.
 - **Value objects validate at construction** (`CouponCode`, `CountryCode`, `IpAddress`, `UserId`), so
-  an invalid value can't travel inward. `userId` is a mandated UUID — opaque and non-PII.
+  an invalid value can't travel inward. `userId` is a mandated UUID the service treats as an opaque
+  identifier — it derives nothing from it and stores no other user data.
 
 These boundaries are enforced by an ArchUnit test (`ArchitectureTest`), not just documented.
 
@@ -167,9 +168,10 @@ remote address is the balancer's, not the client's.
 
 The design is deliberately partition-ready without building it now:
 
-- **Horizontal scale is free** — stateless pods, Postgres as the source of truth. The geo-IP
-  database is a small per-pod file (no shared cache to coordinate); at large fleet sizes it would be
-  baked into the image or pulled by an init-container, still per-pod.
+- **Horizontal scaling adds no application coordination** — stateless pods, Postgres as the source of
+  truth (throughput is then bounded by database capacity, connection pools, and lock contention, not
+  the app). The geo-IP database is a small per-pod file (no shared cache to coordinate); at large
+  fleet sizes it would be baked into the image or pulled by an init-container, still per-pod.
 - **Sharding** — the redemption key includes `coupon_id`, so the table hash-partitions on it cleanly
   (time-partitioning would break the per-user uniqueness constraint).
 - **Read/emit** — a `CouponFullyRedeemed` domain event published to Kafka when a coupon fills is a

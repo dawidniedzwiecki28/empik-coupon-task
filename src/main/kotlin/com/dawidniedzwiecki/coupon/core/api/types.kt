@@ -85,7 +85,7 @@ value class CouponCode private constructor(val value: String) {
 	override fun toString(): String = value
 }
 
-/** Caller-supplied user identifier; a mandated UUID, so it is opaque and non-PII. */
+/** Caller-supplied user identifier — a mandated UUID the service treats as an opaque identifier. */
 @JvmInline
 value class UserId(val value: UUID)
 
