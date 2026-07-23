@@ -80,6 +80,20 @@ class GeoIpDatabaseUpdaterTest {
 		assertEquals(0, requestedPaths.size)
 	}
 
+	@Test
+	fun `does nothing when the update URL is blank`() {
+		// given
+		val database = GeoIpDatabase(GeoIpTestFixtures.bundledReader())
+		val original = database.reader()
+
+		// when
+		updater(database, updateUrl = "   ").refreshOnStartup()
+
+		// then
+		assertSame(original, database.reader())
+		assertEquals(0, requestedPaths.size)
+	}
+
 	private val baseUrl get() = "http://127.0.0.1:${server.address.port}"
 
 	private fun updater(database: GeoIpDatabase, updateUrl: String?) =

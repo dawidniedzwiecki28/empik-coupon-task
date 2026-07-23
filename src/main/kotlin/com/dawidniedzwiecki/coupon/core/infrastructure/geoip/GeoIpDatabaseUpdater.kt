@@ -30,7 +30,7 @@ class GeoIpDatabaseUpdater(
 	private val clock: Clock,
 ) {
 	private val log = LoggerFactory.getLogger(javaClass)
-	private val httpClient = HttpClient.newBuilder().connectTimeout(CONNECT_TIMEOUT).build()
+	private val httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build()
 
 	@EventListener(ApplicationReadyEvent::class)
 	fun refreshOnStartup() = refresh("startup")
@@ -60,14 +60,9 @@ class GeoIpDatabaseUpdater(
 	}
 
 	private fun download(url: String): DatabaseReader {
-		val request = HttpRequest.newBuilder(URI.create(url)).timeout(READ_TIMEOUT).GET().build()
+		val request = HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofSeconds(30)).GET().build()
 		val response = httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray())
 		require(response.statusCode() == 200) { "unexpected HTTP status ${response.statusCode()} from $url" }
 		return DatabaseReader.Builder(GZIPInputStream(ByteArrayInputStream(response.body()))).build()
-	}
-
-	private companion object {
-		val CONNECT_TIMEOUT: Duration = Duration.ofSeconds(10)
-		val READ_TIMEOUT: Duration = Duration.ofSeconds(30)
 	}
 }
