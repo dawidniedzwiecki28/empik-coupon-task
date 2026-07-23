@@ -9,11 +9,7 @@ import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Primary
 
-/**
- * Deterministic stand-in for the database-backed resolver: every caller resolves to [country] (or
- * fails when [available] is false), so tests drive the country outcome without depending on real IP
- * data. Subclasses the concrete resolver (there is no interface); the wrapped database is never read.
- */
+/** Deterministic geo-IP: every caller resolves to [country], or fails when [available] is false. */
 class FakeGeoIpResolver : GeoIpResolver(GeoIpTestFixtures.dummyDatabase()) {
 	@Volatile
 	var country: CountryCode = CountryCode.of("PL")

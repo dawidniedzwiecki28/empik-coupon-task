@@ -1,10 +1,10 @@
 package com.dawidniedzwiecki.coupon.rest
 
 import com.dawidniedzwiecki.coupon.core.api.IpAddress
+import io.mockk.every
+import io.mockk.mockk
 import jakarta.servlet.http.HttpServletRequest
 import org.junit.jupiter.api.Test
-import org.mockito.kotlin.doReturn
-import org.mockito.kotlin.mock
 import kotlin.test.assertEquals
 
 class ClientIpResolverTest {
@@ -13,9 +13,9 @@ class ClientIpResolverTest {
 	fun `ignores the forwarded header and uses the remote address when trust is off`() {
 		// given
 		val resolver = ClientIpResolver(trustClientIp = false)
-		val request = mock<HttpServletRequest> {
-			on { remoteAddr } doReturn "203.0.113.5"
-			on { getHeader("X-Forwarded-For") } doReturn "192.0.2.1"
+		val request = mockk<HttpServletRequest> {
+			every { remoteAddr } returns "203.0.113.5"
+			every { getHeader("X-Forwarded-For") } returns "192.0.2.1"
 		}
 
 		// expect — the spoofable header is disregarded
@@ -26,8 +26,8 @@ class ClientIpResolverTest {
 	fun `uses the first X-Forwarded-For hop when trust is on`() {
 		// given
 		val resolver = ClientIpResolver(trustClientIp = true)
-		val request = mock<HttpServletRequest> {
-			on { getHeader("X-Forwarded-For") } doReturn "192.0.2.1, 10.0.0.1"
+		val request = mockk<HttpServletRequest> {
+			every { getHeader("X-Forwarded-For") } returns "192.0.2.1, 10.0.0.1"
 		}
 
 		// expect
@@ -38,8 +38,8 @@ class ClientIpResolverTest {
 	fun `skips an empty leading X-Forwarded-For value when trust is on`() {
 		// given
 		val resolver = ClientIpResolver(trustClientIp = true)
-		val request = mock<HttpServletRequest> {
-			on { getHeader("X-Forwarded-For") } doReturn ", 203.0.113.5"
+		val request = mockk<HttpServletRequest> {
+			every { getHeader("X-Forwarded-For") } returns ", 203.0.113.5"
 		}
 
 		// expect — the first non-empty hop is used
@@ -50,8 +50,9 @@ class ClientIpResolverTest {
 	fun `falls back to the remote address when trust is on but no header is present`() {
 		// given
 		val resolver = ClientIpResolver(trustClientIp = true)
-		val request = mock<HttpServletRequest> {
-			on { remoteAddr } doReturn "203.0.113.5"
+		val request = mockk<HttpServletRequest> {
+			every { getHeader("X-Forwarded-For") } returns null
+			every { remoteAddr } returns "203.0.113.5"
 		}
 
 		// expect

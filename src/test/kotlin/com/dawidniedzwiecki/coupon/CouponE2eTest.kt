@@ -16,11 +16,7 @@ import org.springframework.test.web.servlet.post
 import java.util.UUID
 import kotlin.test.assertEquals
 
-/**
- * End-to-end wiring check for the main flows: a real HTTP request travels through the controller,
- * domain logic and PostgreSQL and back. Edge cases are covered at their own layers; this proves the
- * pieces are connected. Geo-IP is faked so the caller's country is deterministic.
- */
+/** End-to-end wiring for the main flows: HTTP → controller → domain → PostgreSQL → back; geo-IP faked. */
 @SpringBootTest
 @AutoConfigureMockMvc
 @Import(TestcontainersConfiguration::class, FakeGeoIpConfig::class)
@@ -40,6 +36,7 @@ class CouponE2eTest @Autowired constructor(
 
 	@Test
 	fun `creates a coupon`() {
+		// expect
 		createCoupon("WIOSNA").andExpect {
 			status { isCreated() }
 			jsonPath("$.couponId") { exists() }
@@ -64,8 +61,10 @@ class CouponE2eTest @Autowired constructor(
 		createCoupon("WIOSNA").andExpect { status { isCreated() } }
 		val user = UUID.randomUUID()
 
-		// expect
+		// when
 		redeem("WIOSNA", user).andExpect { status { isOk() } }
+
+		// then — the second attempt is rejected
 		redeem("WIOSNA", user).andExpect { status { isConflict() } }
 	}
 

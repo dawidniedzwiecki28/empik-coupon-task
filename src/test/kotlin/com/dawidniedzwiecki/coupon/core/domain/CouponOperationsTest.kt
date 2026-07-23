@@ -28,10 +28,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 
-/**
- * The primary test: exercises the full create/redeem behaviour of [CouponOperations] against a real
- * PostgreSQL (Testcontainers), with only geo-IP faked so the caller's country is deterministic.
- */
+/** The primary test: full create/redeem behaviour against a real PostgreSQL, with geo-IP faked. */
 @SpringBootTest
 @Import(TestcontainersConfiguration::class, FakeGeoIpConfig::class)
 class CouponOperationsTest @Autowired constructor(
@@ -114,6 +111,7 @@ class CouponOperationsTest @Autowired constructor(
 		assertEquals("PL", rejected.requiredCountry)
 		assertEquals("DE", rejected.callerCountry)
 		assertEquals(0, coupons.findById(id.value).get().currentUses)
+		assertEquals(0L, redemptions.countByIdCouponId(id.value))
 	}
 
 	@Test
@@ -137,7 +135,7 @@ class CouponOperationsTest @Autowired constructor(
 		// given
 		create(code = "SINGLE", maxUses = 1)
 
-		// when — two distinct users
+		// when
 		val first = redeem(code = "SINGLE")
 		val second = redeem(code = "SINGLE")
 
@@ -152,9 +150,12 @@ class CouponOperationsTest @Autowired constructor(
 		val id = create(code = "WIOSNA")
 		geoIp.available = false
 
-		// expect
+		// when
 		assertFailsWith<GeoIpUnavailableException> { redeem(code = "WIOSNA") }
+
+		// then — fail-closed: nothing is written
 		assertEquals(0, coupons.findById(id.value).get().currentUses)
+		assertEquals(0L, redemptions.countByIdCouponId(id.value))
 	}
 
 	@Test
@@ -165,7 +166,7 @@ class CouponOperationsTest @Autowired constructor(
 		val id = create(code = "RUSH", maxUses = maxUses)
 		val pool = Executors.newFixedThreadPool(16)
 
-		// when — distinct users race for the limited slots
+		// when — distinct users race for the slots
 		val outcomes = try {
 			(1..attempts)
 				.map { pool.submit(Callable { redeem(code = "RUSH") }) }
@@ -174,7 +175,7 @@ class CouponOperationsTest @Autowired constructor(
 			pool.shutdown()
 		}
 
-		// then — the atomic increment lets through exactly maxUses; the rest are rejected as full
+		// then — exactly maxUses succeed, the rest hit the limit
 		assertEquals(maxUses, outcomes.count { it == RedemptionResult.Success })
 		assertEquals(attempts - maxUses, outcomes.count { it == RedemptionResult.LimitReached })
 		assertEquals(maxUses, coupons.findById(id.value).get().currentUses)
