@@ -43,7 +43,7 @@ class CouponController(
 		return ResponseEntity.created(location).body(CreateCouponResponse(couponId.value))
 	}
 
-	@GetMapping("/{id}")
+	@GetMapping(COUPON_BY_ID_PATH)
 	fun getCoupon(@PathVariable id: UUID): CouponResponse =
 		couponOperations.findCoupon(CouponId(id))?.toResponse() ?: throw CouponNotFoundException(id)
 
@@ -103,6 +103,7 @@ class CouponController(
 
 	companion object {
 		const val COUPONS_PATH = "/api/coupons"
+		const val COUPON_BY_ID_PATH = "/{id}"
 		const val REDEMPTIONS_PATH = "/redemptions"
 	}
 }
