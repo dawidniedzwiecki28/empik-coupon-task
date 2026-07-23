@@ -12,6 +12,7 @@ import com.dawidniedzwiecki.coupon.core.api.UserId
 import com.dawidniedzwiecki.coupon.core.infrastructure.geoip.GeoIpResolver
 import com.dawidniedzwiecki.coupon.core.infrastructure.persistence.CouponEntity
 import com.dawidniedzwiecki.coupon.core.infrastructure.persistence.CouponRepository
+import org.hibernate.exception.ConstraintViolationException
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.argumentCaptor
@@ -20,6 +21,7 @@ import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.springframework.dao.DataIntegrityViolationException
+import java.sql.SQLException
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
@@ -72,12 +74,25 @@ class CouponOperationsImplTest {
 	}
 
 	@Test
-	fun `translates a duplicate code to CouponCodeAlreadyExistsException`() {
+	fun `translates a unique-code violation to CouponCodeAlreadyExistsException`() {
 		// given
-		whenever(couponRepository.saveAndFlush(any())).thenThrow(DataIntegrityViolationException("dup"))
+		whenever(couponRepository.saveAndFlush(any()))
+			.thenThrow(dataIntegrityViolation(CouponEntity.UNIQUE_CODE_CONSTRAINT))
 
 		// expect
 		assertFailsWith<CouponCodeAlreadyExistsException> {
+			operations.createCoupon(CreateCouponCommand(code = CouponCode.of("SUMMER"), maxUses = 1, country = CountryCode.of("PL")))
+		}
+	}
+
+	@Test
+	fun `rethrows integrity violations that are not the unique-code constraint`() {
+		// given — a different constraint (e.g. a check) must not be mistaken for a duplicate code
+		whenever(couponRepository.saveAndFlush(any()))
+			.thenThrow(dataIntegrityViolation("ck_coupons_max_uses_positive"))
+
+		// expect
+		assertFailsWith<DataIntegrityViolationException> {
 			operations.createCoupon(CreateCouponCommand(code = CouponCode.of("SUMMER"), maxUses = 1, country = CountryCode.of("PL")))
 		}
 	}
@@ -150,6 +165,13 @@ class CouponOperationsImplTest {
 			maxUses = 3,
 			currentUses = 0,
 			country = country,
+		)
+
+	/** Mirrors how Spring wraps a Hibernate constraint failure: a DIV whose cause carries the constraint name. */
+	private fun dataIntegrityViolation(constraint: String) =
+		DataIntegrityViolationException(
+			"boom",
+			ConstraintViolationException("boom", SQLException("boom"), ConstraintViolationException.ConstraintKind.OTHER, constraint),
 		)
 }
 

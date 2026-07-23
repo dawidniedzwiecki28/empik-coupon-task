@@ -3,17 +3,21 @@ package com.dawidniedzwiecki.coupon.core.infrastructure.persistence
 import com.dawidniedzwiecki.coupon.TestcontainersConfiguration
 import com.dawidniedzwiecki.coupon.core.api.RedemptionResult
 import com.dawidniedzwiecki.coupon.core.domain.CouponRedemptionExecutor
+import org.hibernate.exception.ConstraintViolationException
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.Callable
 import java.util.concurrent.Executors
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 
 @SpringBootTest
 @Import(TestcontainersConfiguration::class)
@@ -86,6 +90,21 @@ class CouponPersistenceIntegrationTest @Autowired constructor(
 		assertEquals(RedemptionResult.AlreadyRedeemedByUser, second)
 		assertEquals(1, couponRepository.findById(couponId).get().currentUses)
 		assertEquals(1L, redemptionRepository.countByIdCouponId(couponId))
+	}
+
+	@Test
+	fun `a duplicate code fails on the uq_coupons_code constraint`() {
+		// given
+		seedCoupon(code = "DUP", maxUses = 1)
+
+		// when — the real Postgres unique violation, surfaced through Hibernate
+		val ex = assertFailsWith<DataIntegrityViolationException> {
+			couponRepository.saveAndFlush(CouponEntity(UUID.randomUUID(), "DUP", Instant.now(), 1, 0, "PL"))
+		}
+
+		// then — the constraint name the app matches on must be the one the DB actually reports
+		val constraint = (ex.cause as? ConstraintViolationException)?.constraintName
+		assertTrue(CouponEntity.UNIQUE_CODE_CONSTRAINT.equals(constraint, ignoreCase = true), "was: $constraint")
 	}
 
 	private fun seedCoupon(code: String, maxUses: Int): UUID {

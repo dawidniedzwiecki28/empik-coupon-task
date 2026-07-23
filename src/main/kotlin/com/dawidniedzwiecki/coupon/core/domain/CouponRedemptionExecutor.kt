@@ -24,16 +24,16 @@ class CouponRedemptionExecutor(
 		// Insert-first (ON CONFLICT DO NOTHING): a repeat user is rejected before the counter changes,
 		// and it reports no rows rather than throwing.
 		if (redemptionRepository.insertIfAbsent(couponId, userId, Instant.now(clock)) == 0) {
-			log.info("Redemption rejected: outcome=ALREADY_REDEEMED couponId={} userId={}", couponId, userId)
+			log.debug("Redemption rejected: outcome=ALREADY_REDEEMED couponId={} userId={}", couponId, userId)
 			return RedemptionResult.AlreadyRedeemedByUser
 		}
 		if (couponRepository.incrementUsesIfBelowMax(couponId) == 0) {
 			// Coupon is full — undo the tentative redemption within the same transaction.
 			redemptionRepository.deleteRedemption(couponId, userId)
-			log.info("Redemption rejected: outcome=LIMIT_REACHED couponId={} userId={}", couponId, userId)
+			log.debug("Redemption rejected: outcome=LIMIT_REACHED couponId={} userId={}", couponId, userId)
 			return RedemptionResult.LimitReached
 		}
-		log.info("Redemption succeeded: couponId={} userId={}", couponId, userId)
+		log.debug("Redemption succeeded: couponId={} userId={}", couponId, userId)
 		return RedemptionResult.Success
 	}
 }
