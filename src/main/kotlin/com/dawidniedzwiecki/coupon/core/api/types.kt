@@ -1,5 +1,6 @@
 package com.dawidniedzwiecki.coupon.core.api
 
+import com.google.common.net.InetAddresses
 import java.util.UUID
 
 /** Two-letter country code, upper-cased — ISO 3166-1 alpha-2 shape, not checked against the assigned list. */
@@ -19,49 +20,14 @@ value class CountryCode private constructor(val value: String) {
 	override fun toString(): String = value
 }
 
-/** A syntactically valid IPv4/IPv6 address — a syntactic guard, not full RFC validation. */
+/** A valid IPv4/IPv6 address literal, checked on construction so an invalid address can't reach the geo-IP lookup. */
 @JvmInline
 value class IpAddress private constructor(val value: String) {
 	companion object {
 		fun of(raw: String): IpAddress {
 			val trimmed = raw.trim()
-			if (!isIpv4(trimmed) && !isIpv6(trimmed)) throw InvalidValueException("Invalid IP address: '$raw'")
+			if (!InetAddresses.isInetAddress(trimmed)) throw InvalidValueException("Invalid IP address: '$raw'")
 			return IpAddress(trimmed)
-		}
-
-		private fun isIpv4(s: String): Boolean {
-			val parts = s.split('.')
-			return parts.size == 4 && parts.all { part ->
-				val octet = part.toIntOrNull()
-				octet != null && octet in 0..255 && part == octet.toString() // rejects leading zeros
-			}
-		}
-
-		// A syntactic IPv6 validator is inherently branchy; the logic is exhaustively covered by tests.
-		@Suppress("CyclomaticComplexMethod", "ComplexCondition", "ReturnCount")
-		private fun isIpv6(raw: String): Boolean {
-			val s = raw.substringBefore('%') // ignore an optional zone index
-			val compressed = "::" in s
-			if (compressed) {
-				if (s.indexOf("::") != s.lastIndexOf("::")) return false // at most one "::"
-				// A single leading/trailing ':' that is not part of "::" is malformed (":1::", "::1:").
-				if (s.startsWith(':') && !s.startsWith("::")) return false
-				if (s.endsWith(':') && !s.endsWith("::")) return false
-			} else if (s.startsWith(':') || s.endsWith(':')) {
-				return false
-			}
-			val groups = s.split(':').filter { it.isNotEmpty() }
-			var count = 0
-			for ((i, g) in groups.withIndex()) {
-				if (i == groups.lastIndex && '.' in g) {
-					if (!isIpv4(g)) return false
-					count += 2 // an embedded IPv4 tail occupies two 16-bit groups
-				} else {
-					if (g.length !in 1..4 || g.any { it !in '0'..'9' && it !in 'a'..'f' && it !in 'A'..'F' }) return false
-					count += 1
-				}
-			}
-			return if (compressed) count <= 7 else count == 8
 		}
 	}
 
