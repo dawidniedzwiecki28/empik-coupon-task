@@ -62,6 +62,11 @@ kotlin {
 	}
 }
 
+// Skip the plain library jar so the Docker image has a single jar to launch.
+tasks.jar {
+	enabled = false
+}
+
 detekt {
 	buildUponDefaultConfig = true
 	config.setFrom(files("config/detekt/detekt.yml"))

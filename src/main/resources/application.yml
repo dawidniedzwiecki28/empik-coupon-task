@@ -37,3 +37,6 @@ management:
 logging:
   level:
     com.dawidniedzwiecki.coupon: INFO
+  pattern:
+    # Per-request correlation id (from RequestIdFilter) on every log line.
+    level: "%5p [%X{requestId:-}]"
