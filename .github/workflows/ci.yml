@@ -16,6 +16,7 @@ concurrency:
 
 jobs:
   build:
+    name: Build & test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -44,6 +45,7 @@ jobs:
   # Separate job so image validation runs independently of (and parallel to) the test job — a test or
   # coverage failure can't mask a broken Dockerfile, and the recompile overlaps rather than adds latency.
   docker:
+    name: Docker build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
