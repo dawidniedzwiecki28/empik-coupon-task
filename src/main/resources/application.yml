@@ -16,6 +16,14 @@ spring:
   flyway:
     enabled: true
 
+geoip:
+  # HTTPS so a spoofed response can't grant a country-restricted redemption.
+  base-url: ${GEOIP_BASE_URL:https://ipapi.co}
+  timeout: ${GEOIP_TIMEOUT:2s}
+  cache:
+    maximum-size: 50000
+    ttl: 24h
+
 management:
   endpoints:
     web:
