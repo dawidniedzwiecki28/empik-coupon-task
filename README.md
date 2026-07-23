@@ -138,8 +138,9 @@ concurrency guarantees live in the database, not the process.
 
 Requests run on **JDK 21 virtual threads** (`spring.threads.virtual.enabled`), so the blocking JDBC
 calls scale to far more concurrent requests than a fixed platform-thread pool would — without adopting
-a reactive stack. The code holds no JVM locks, so nothing pins a carrier thread; the real ceiling is
-the database (connections, per-coupon row contention), not application threads.
+a reactive stack. Our own code holds no JVM locks (a common source of carrier-thread pinning), though
+transitive driver/framework code still can; either way the real ceiling is the database (connections,
+per-coupon row contention), not application threads.
 
 The behaviour is proven by a test that races many users for a limited coupon (`CouponOperationsTest`)
 and asserts that *exactly* `maxUses` succeed.
@@ -190,12 +191,18 @@ The design is deliberately partition-ready without building it now:
 
 ## Testing
 
-- **Unit** — `CouponOperationsImplTest` covers every redemption branch with mocked repositories;
-  value-object tests (`CountryCodeTest`, `CouponCodeTest`, `IpAddressTest`) cover validation edges.
-- **Integration (Testcontainers + real PostgreSQL)** — `CouponOperationsIntegrationTest` drives the
-  full flow through `CouponOperations` including the parallel-redemption concurrency proof;
-  `CouponPersistenceIntegrationTest` covers repository-level guarantees; `CouponRestIntegrationTest`
-  exercises the HTTP edge end-to-end (a fake geo-IP resolver keeps the suite deterministic).
+A pyramid — each concern tested at the layer that owns it, without duplication (mocking uses MockK):
+
+- **Unit** — the value objects (`CountryCodeTest`, `CouponCodeTest`, `IpAddressTest`),
+  `ClientIpResolverTest`, and the geo-IP tests (`GeoIpResolverTest`, `GeoIpDatabaseTest`,
+  `GeoIpDatabaseUpdaterTest`).
+- **Web slice** — `CouponControllerTest` (`@WebMvcTest`) maps every outcome, edge case and validation
+  error to the right HTTP status/body, with the service mocked.
+- **Domain integration (the primary test)** — `CouponOperationsTest` drives the full create/redeem
+  behaviour through `CouponOperations` against a real PostgreSQL (Testcontainers), geo-IP faked;
+  covers every outcome and the parallel-redemption concurrency proof.
+- **End-to-end** — `CouponE2eTest` checks the main flows through the full stack (HTTP → domain →
+  PostgreSQL) plus `OpenApiIntegrationTest` for the generated docs.
 - **Architecture** — `ArchitectureTest` (ArchUnit) enforces the layer boundaries above.
 - Coverage is gated in CI at **93%** (JaCoCo), excluding framework wiring and data holders.
 
