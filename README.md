@@ -20,20 +20,26 @@ architecture, and decisions that would hold up in a real production service — 
 
 ## Running it
 
-Requires **JDK 21** and **Docker** (for PostgreSQL, and for the Testcontainers-based tests).
+Requires **Docker**. Building and testing locally also needs **JDK 21** — the Gradle toolchain pins it,
+so it's used even if your machine's default JDK differs.
+
+**Option A — everything in Docker** (builds the app image and runs it alongside PostgreSQL):
 
 ```bash
-# 1. Start PostgreSQL (schema is applied automatically by Flyway on app start)
-docker compose up -d postgres
-
-# 2. Run the service (defaults match the compose database)
-./gradlew bootRun
+docker compose up --build
 ```
 
-The service listens on `http://localhost:8080`. Health is at `/actuator/health`.
+**Option B — app on the host, PostgreSQL in Docker** (faster iteration):
 
 ```bash
-# Build and run the full test suite (needs Docker)
+docker compose up -d postgres      # schema is applied automatically by Flyway on app start
+./gradlew bootRun                  # defaults match the compose database
+```
+
+Either way the service listens on `http://localhost:8080`; health is at `/actuator/health`.
+
+```bash
+# Build and run the full test suite (needs Docker for Testcontainers)
 ./gradlew build
 ```
 
@@ -196,6 +202,16 @@ that leftmost entry is attacker-controlled, so enabling trust there would let a 
 country. Enable it solely behind a balancer you know overwrites the header; on a directly exposed
 service, leave it off. This reflects the reality that a scalable deployment sits behind a load
 balancer, where the remote address is the balancer's, not the client's.
+
+## Observability
+
+Every request is tagged with a **correlation id** (`RequestIdFilter`): the caller's `X-Request-Id` when
+it is present and well-formed — validated to a short id charset, so a caller can't forge log lines or
+bloat the logs — otherwise a generated UUID. The id is placed in the logging MDC, so **every log line
+for a request carries it**, and echoed back on the response `X-Request-Id` header for client-side
+correlation. Health is exposed at `/actuator/health`; other actuator endpoints (metrics, info) are
+deliberately kept off the public HTTP surface — in a real deployment they'd move to a separate
+management port rather than be exposed here.
 
 ## Scaling further
 

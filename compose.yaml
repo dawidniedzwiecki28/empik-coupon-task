@@ -1,4 +1,17 @@
 services:
+  app:
+    build: .
+    container_name: coupon-app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/coupon
+      DB_USERNAME: coupon
+      DB_PASSWORD: coupon
+    ports:
+      - "127.0.0.1:8080:8080"
+
   postgres:
     image: postgres:17-alpine
     container_name: coupon-postgres

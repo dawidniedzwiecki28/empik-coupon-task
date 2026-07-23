@@ -62,6 +62,11 @@ kotlin {
 	}
 }
 
+// Only the executable bootJar is an artifact here; skip the plain library jar so the Docker image has one jar.
+tasks.jar {
+	enabled = false
+}
+
 detekt {
 	buildUponDefaultConfig = true
 	config.setFrom(files("config/detekt/detekt.yml"))
