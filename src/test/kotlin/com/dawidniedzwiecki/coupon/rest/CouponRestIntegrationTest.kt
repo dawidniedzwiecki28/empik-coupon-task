@@ -133,9 +133,13 @@ class CouponRestIntegrationTest @Autowired constructor(
 		stubCountry(ip = "3.3.3.3", country = "PL")
 		val user = UUID.randomUUID()
 
-		// expect
-		redeem(code = "WIOSNA", userId = user, ip = "3.3.3.3").andExpect { status { isOk() } }
-		redeem(code = "WIOSNA", userId = user, ip = "3.3.3.3").andExpect { status { isConflict() } }
+		// when
+		val first = redeem(code = "WIOSNA", userId = user, ip = "3.3.3.3")
+		val second = redeem(code = "WIOSNA", userId = user, ip = "3.3.3.3")
+
+		// then
+		first.andExpect { status { isOk() } }
+		second.andExpect { status { isConflict() } }
 	}
 
 	@Test
@@ -144,9 +148,13 @@ class CouponRestIntegrationTest @Autowired constructor(
 		createCoupon(code = "ONCE", maxUses = 1, country = "PL")
 		stubCountry(ip = "4.4.4.4", country = "PL")
 
-		// expect
-		redeem(code = "ONCE", userId = UUID.randomUUID(), ip = "4.4.4.4").andExpect { status { isOk() } }
-		redeem(code = "ONCE", userId = UUID.randomUUID(), ip = "4.4.4.4").andExpect { status { isConflict() } }
+		// when
+		val first = redeem(code = "ONCE", userId = UUID.randomUUID(), ip = "4.4.4.4")
+		val second = redeem(code = "ONCE", userId = UUID.randomUUID(), ip = "4.4.4.4")
+
+		// then
+		first.andExpect { status { isOk() } }
+		second.andExpect { status { isConflict() } }
 	}
 
 	@Test
