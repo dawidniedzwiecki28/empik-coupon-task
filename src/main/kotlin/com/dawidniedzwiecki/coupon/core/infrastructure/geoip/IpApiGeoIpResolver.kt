@@ -6,6 +6,7 @@ import com.dawidniedzwiecki.coupon.core.api.IpAddress
 import com.github.benmanes.caffeine.cache.Cache
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
+import org.springframework.web.client.RestClientException
 
 /**
  * Resolves country via ipapi.co over HTTPS, cached per instance. Fail-closed: any transport error,
@@ -18,16 +19,19 @@ class IpApiGeoIpResolver(
 	private val cache: Cache<String, CountryCode>,
 ) : GeoIpResolver {
 
-	override fun resolveCountry(ip: IpAddress): CountryCode =
-		cache.getIfPresent(ip.value) ?: fetch(ip).also { cache.put(ip.value, it) }
+	// Atomic load: concurrent misses for the same IP share one upstream call; failures are not cached.
+	override fun resolveCountry(ip: IpAddress): CountryCode = cache.get(ip.value) { fetch(ip) }
 
 	private fun fetch(ip: IpAddress): CountryCode {
 		val body = try {
 			restClient.get().uri("/{ip}/country/", ip.value).retrieve().body(String::class.java)
-		} catch (e: Exception) {
+		} catch (e: RestClientException) {
 			throw GeoIpUnavailableException(ip.value, e)
 		}
-		return runCatching { CountryCode.of(body.orEmpty()) }
-			.getOrElse { throw GeoIpUnavailableException(ip.value, it) }
+		return try {
+			CountryCode.of(body.orEmpty())
+		} catch (e: IllegalArgumentException) {
+			throw GeoIpUnavailableException(ip.value, e)
+		}
 	}
 }
