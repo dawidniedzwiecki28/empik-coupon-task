@@ -12,11 +12,15 @@ import com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices
 @AnalyzeClasses(packages = ["com.dawidniedzwiecki.coupon"], importOptions = [ImportOption.DoNotIncludeTests::class])
 class ArchitectureTest {
 
-	// expect — the REST edge reaches the core only through its published API
+	// expect — the REST edge reaches the core only through its published API.
+	// Scoped to our own `core` package (not a loose `..core..`, which also matches e.g. org.springframework.core).
 	@ArchTest
 	val restReachesTheCoreOnlyThroughTheApi =
 		noClasses().that().resideInAPackage("..rest..")
-			.should().dependOnClassesThat(resideInAPackage("..core..").and(resideOutsideOfPackage("..core.api..")))
+			.should().dependOnClassesThat(
+				resideInAPackage("com.dawidniedzwiecki.coupon.core..")
+					.and(resideOutsideOfPackage("com.dawidniedzwiecki.coupon.core.api..")),
+			)
 
 	// expect — core.api is a framework-free contract (no Spring, JPA, servlet, or other layer)
 	@ArchTest
@@ -35,7 +39,7 @@ class ArchitectureTest {
 	// expect — the core never depends on the web edge or Spring wiring
 	@ArchTest
 	val theCoreDoesNotDependOnTheWebEdgeOrWiring =
-		noClasses().that().resideInAPackage("..core..")
+		noClasses().that().resideInAPackage("com.dawidniedzwiecki.coupon.core..")
 			.should().dependOnClassesThat().resideInAnyPackage("..rest..", "..config..")
 
 	// expect — top-level packages have no dependency cycles
