@@ -39,6 +39,9 @@ The service listens on `http://localhost:8080`. Health is at `/actuator/health`.
 
 ## API
 
+Interactive docs (when running): **Swagger UI** at `/swagger-ui.html`, OpenAPI document at
+`/v3/api-docs`.
+
 ### Create a coupon — `POST /api/coupons`
 
 ```bash
@@ -229,10 +232,8 @@ All settings have working defaults. The first group are environment variables re
   authenticated principal at the edge.
 - **Geo-IP data freshness** — the bundled database is a point-in-time snapshot; keep it current via
   image redeploys or the opt-in updater.
-- **Interactive API docs (OpenAPI/Swagger)** are not yet included — springdoc's Spring Boot 4 support
-  was still catching up at build time; the controller and DTOs are the source of truth in the meantime.
 
 ## Tech
 
-Kotlin, Spring Boot, PostgreSQL, Flyway, Spring Data JPA, MaxMind `geoip2` (DB-IP data), JUnit 5,
-Testcontainers, mockito-kotlin, ArchUnit, detekt. Built with Gradle, targeting Java 21.
+Kotlin, Spring Boot, PostgreSQL, Flyway, Spring Data JPA, MaxMind `geoip2` (DB-IP data), springdoc
+OpenAPI, JUnit 5, Testcontainers, mockito-kotlin, ArchUnit, detekt. Built with Gradle, targeting Java 21.
