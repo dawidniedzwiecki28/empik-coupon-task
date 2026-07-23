@@ -43,6 +43,7 @@ dependencies {
 	testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
 	testImplementation("org.springframework.boot:spring-boot-testcontainers")
 	testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
+	testImplementation("org.mockito.kotlin:mockito-kotlin:6.0.0")
 	testImplementation("org.testcontainers:testcontainers-junit-jupiter")
 	testImplementation("org.testcontainers:testcontainers-postgresql")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
@@ -82,10 +83,17 @@ tasks.jacocoTestReport {
 		xml.required = true
 		html.required = true
 	}
-	// Coverage reflects tested behaviour, not the framework bootstrap.
+	// Coverage reflects tested behaviour, not framework bootstrap or JPA entity data-holders.
 	classDirectories.setFrom(
 		files(classDirectories.files.map {
-			fileTree(it) { exclude("**/CouponApplication*") }
+			fileTree(it) {
+				exclude(
+					"**/CouponApplication*",
+					"**/CouponEntity*",
+					"**/CouponRedemptionEntity*",
+					"**/CouponRedemptionId*",
+				)
+			}
 		}),
 	)
 }

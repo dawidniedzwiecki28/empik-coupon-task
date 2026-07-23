@@ -1,6 +1,5 @@
 package com.dawidniedzwiecki.coupon.core.api
 
-import java.time.Instant
 import java.util.UUID
 
 /** ISO 3166-1 alpha-2 country code, normalized upper-case; invalid values cannot be constructed. */
@@ -8,8 +7,7 @@ import java.util.UUID
 value class CountryCode private constructor(val value: String) {
 	companion object {
 		fun of(raw: String): CountryCode {
-			// Validate before uppercasing: otherwise a 1-char input like "ß" expands to "SS"
-			// and would slip past the two-letter check.
+			// Validate before uppercasing — else a 1-char input like "ß" expands to "SS" and passes.
 			val trimmed = raw.trim()
 			require(trimmed.length == 2 && trimmed.all { it in 'A'..'Z' || it in 'a'..'z' }) {
 				"Invalid ISO 3166-1 alpha-2 country code: '$raw'"
@@ -47,6 +45,9 @@ value class IpAddress private constructor(val value: String) {
 			val compressed = "::" in s
 			if (compressed) {
 				if (s.indexOf("::") != s.lastIndexOf("::")) return false // at most one "::"
+				// A single leading/trailing ':' that is not part of "::" is malformed (":1::", "::1:").
+				if (s.startsWith(':') && !s.startsWith("::")) return false
+				if (s.endsWith(':') && !s.endsWith("::")) return false
 			} else if (s.startsWith(':') || s.endsWith(':')) {
 				return false
 			}
@@ -68,29 +69,42 @@ value class IpAddress private constructor(val value: String) {
 	override fun toString(): String = value
 }
 
+/** A coupon code, normalized (trimmed + upper-case) so uniqueness and lookups are case-insensitive. */
+@JvmInline
+value class CouponCode private constructor(val value: String) {
+	companion object {
+		/** Matches the coupons.code column width; not a runtime knob (raising it needs a migration). */
+		const val MAX_LENGTH = 64
+
+		fun of(raw: String): CouponCode {
+			val normalized = raw.trim().uppercase()
+			require(normalized.isNotEmpty() && normalized.length <= MAX_LENGTH) { "Invalid coupon code: '$raw'" }
+			return CouponCode(normalized)
+		}
+	}
+
+	override fun toString(): String = value
+}
+
+/** Opaque, caller-supplied user identifier — a UUID we mandate, so it is non-PII. */
+@JvmInline
+value class UserId(val value: UUID)
+
+/** Identifier of a coupon. */
+@JvmInline
+value class CouponId(val value: UUID)
+
 data class CreateCouponCommand(
-	val code: String,
+	val code: CouponCode,
 	val maxUses: Int,
-	val country: String,
+	val country: CountryCode,
 )
 
-/**
- * [userId] is a caller-supplied UUID (we mandate the format, so it is opaque and non-PII).
- * [clientIp] is resolved at the REST edge and passed in, keeping the core free of the servlet layer.
- */
+/** [clientIp] is resolved at the REST edge and passed in, keeping the core free of the servlet layer. */
 data class RedeemCouponCommand(
-	val code: String,
-	val userId: UUID,
+	val code: CouponCode,
+	val userId: UserId,
 	val clientIp: IpAddress,
-)
-
-data class CouponView(
-	val id: UUID,
-	val code: String,
-	val createdAt: Instant,
-	val maxUses: Int,
-	val currentUses: Int,
-	val country: String,
 )
 
 /**
@@ -98,7 +112,7 @@ data class CouponView(
  * so the REST layer maps each to an HTTP status and the compiler enforces total handling.
  */
 sealed interface RedemptionResult {
-	data class Success(val couponCode: String, val country: String, val remainingUses: Int) : RedemptionResult
+	data object Success : RedemptionResult
 
 	data object CouponNotFound : RedemptionResult
 

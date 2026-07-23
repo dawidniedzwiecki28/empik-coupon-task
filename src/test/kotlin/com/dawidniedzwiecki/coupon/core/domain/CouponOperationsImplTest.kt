@@ -1,17 +1,27 @@
 package com.dawidniedzwiecki.coupon.core.domain
 
 import com.dawidniedzwiecki.coupon.core.api.CountryCode
+import com.dawidniedzwiecki.coupon.core.api.CouponCode
 import com.dawidniedzwiecki.coupon.core.api.CouponCodeAlreadyExistsException
 import com.dawidniedzwiecki.coupon.core.api.CreateCouponCommand
 import com.dawidniedzwiecki.coupon.core.api.GeoIpUnavailableException
 import com.dawidniedzwiecki.coupon.core.api.IpAddress
 import com.dawidniedzwiecki.coupon.core.api.RedeemCouponCommand
 import com.dawidniedzwiecki.coupon.core.api.RedemptionResult
+import com.dawidniedzwiecki.coupon.core.api.UserId
 import com.dawidniedzwiecki.coupon.core.infrastructure.geoip.GeoIpResolver
-import com.dawidniedzwiecki.coupon.core.infrastructure.persistence.ConsumeOutcome
-import com.dawidniedzwiecki.coupon.core.infrastructure.persistence.CouponRedemptionRepository
+import com.dawidniedzwiecki.coupon.core.infrastructure.persistence.CouponEntity
 import com.dawidniedzwiecki.coupon.core.infrastructure.persistence.CouponRepository
+import org.hibernate.exception.ConstraintViolationException
 import org.junit.jupiter.api.Test
+import org.mockito.kotlin.any
+import org.mockito.kotlin.argumentCaptor
+import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
+import org.mockito.kotlin.verify
+import org.mockito.kotlin.whenever
+import org.springframework.dao.DataIntegrityViolationException
+import java.sql.SQLException
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
@@ -23,173 +33,146 @@ import kotlin.test.assertIs
 class CouponOperationsImplTest {
 
 	private val clock = Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC)
-	private val couponRepository = FakeCouponRepository()
-	private val redemptionRepository = FakeCouponRedemptionRepository()
+	private val couponRepository = mock<CouponRepository>()
+	private val redemptionExecutor = mock<CouponRedemptionExecutor>()
 	private val geoIp = FakeGeoIpResolver()
-	private val operations = CouponOperationsImpl(couponRepository, redemptionRepository, geoIp, clock)
+	private val operations = CouponOperationsImpl(couponRepository, redemptionExecutor, geoIp, clock)
 
-	private val userId: UUID = UUID.randomUUID()
+	private val userId = UserId(UUID.randomUUID())
 	private val clientIp = IpAddress.of("1.1.1.1")
 
 	// --- creation ---
 
 	@Test
-	fun `creates a coupon with a normalized code`() {
+	fun `creates a coupon from the command and returns its id`() {
+		// given
+		whenever(couponRepository.saveAndFlush(any())).thenAnswer { it.getArgument<CouponEntity>(0) }
+
 		// when
-		val view = operations.createCoupon(CreateCouponCommand(code = "  wiosna  ", maxUses = 3, country = "pl"))
+		val id = operations.createCoupon(
+			CreateCouponCommand(code = CouponCode.of("  wiosna  "), maxUses = 3, country = CountryCode.of("pl")),
+		)
 
 		// then
-		assertEquals("WIOSNA", view.code)
-		assertEquals("PL", view.country)
-		assertEquals(3, view.maxUses)
-		assertEquals(0, view.currentUses)
-		assertEquals(Instant.parse("2026-01-01T00:00:00Z"), view.createdAt)
+		val captor = argumentCaptor<CouponEntity>()
+		verify(couponRepository).saveAndFlush(captor.capture())
+		val saved = captor.firstValue
+		assertEquals("WIOSNA", saved.code)
+		assertEquals("PL", saved.country)
+		assertEquals(3, saved.maxUses)
+		assertEquals(0, saved.currentUses)
+		assertEquals(Instant.parse("2026-01-01T00:00:00Z"), saved.createdAt)
+		assertEquals(saved.id, id.value)
 	}
 
 	@Test
 	fun `rejects non-positive maxUses`() {
 		// expect
 		assertFailsWith<IllegalArgumentException> {
-			operations.createCoupon(CreateCouponCommand(code = "X", maxUses = 0, country = "PL"))
+			operations.createCoupon(CreateCouponCommand(code = CouponCode.of("X"), maxUses = 0, country = CountryCode.of("PL")))
 		}
 	}
 
 	@Test
-	fun `propagates duplicate code`() {
+	fun `translates a unique-code violation to CouponCodeAlreadyExistsException`() {
 		// given
-		operations.createCoupon(CreateCouponCommand(code = "SUMMER", maxUses = 1, country = "PL"))
+		whenever(couponRepository.saveAndFlush(any()))
+			.thenThrow(dataIntegrityViolation(CouponEntity.UNIQUE_CODE_CONSTRAINT))
 
 		// expect
 		assertFailsWith<CouponCodeAlreadyExistsException> {
-			operations.createCoupon(CreateCouponCommand(code = "summer", maxUses = 1, country = "PL"))
+			operations.createCoupon(CreateCouponCommand(code = CouponCode.of("SUMMER"), maxUses = 1, country = CountryCode.of("PL")))
 		}
 	}
 
-	// --- redemption outcomes ---
+	@Test
+	fun `rethrows integrity violations that are not the unique-code constraint`() {
+		// given — a different constraint (e.g. a check) must not be mistaken for a duplicate code
+		whenever(couponRepository.saveAndFlush(any()))
+			.thenThrow(dataIntegrityViolation("ck_coupons_max_uses_positive"))
+
+		// expect
+		assertFailsWith<DataIntegrityViolationException> {
+			operations.createCoupon(CreateCouponCommand(code = CouponCode.of("SUMMER"), maxUses = 1, country = CountryCode.of("PL")))
+		}
+	}
+
+	// --- redemption ---
 
 	@Test
 	fun `redeem returns CouponNotFound for unknown code`() {
-		// expect
-		assertEquals(
-			RedemptionResult.CouponNotFound,
-			operations.redeem(RedeemCouponCommand(code = "NOPE", userId = userId, clientIp = clientIp)),
-		)
+		// given
+		whenever(couponRepository.findByCode("NOPE")).thenReturn(null)
+
+		// when
+		val result = operations.redeem(RedeemCouponCommand(CouponCode.of("NOPE"), userId, clientIp))
+
+		// then
+		assertEquals(RedemptionResult.CouponNotFound, result)
+		verify(redemptionExecutor, never()).consume(any(), any())
 	}
 
 	@Test
 	fun `redeem returns CountryNotAllowed when caller country differs`() {
 		// given
-		givenCoupon(code = "WIOSNA", country = "PL")
+		whenever(couponRepository.findByCode("WIOSNA")).thenReturn(coupon(country = "PL"))
 		geoIp.country = CountryCode.of("DE")
 
 		// when
-		val result = operations.redeem(RedeemCouponCommand("WIOSNA", userId, clientIp))
+		val result = operations.redeem(RedeemCouponCommand(CouponCode.of("WIOSNA"), userId, clientIp))
 
 		// then
 		val notAllowed = assertIs<RedemptionResult.CountryNotAllowed>(result)
 		assertEquals("PL", notAllowed.requiredCountry)
 		assertEquals("DE", notAllowed.callerCountry)
-		assertEquals(0, redemptionRepository.consumeCalls, "country rejection must not consume a redemption")
+		verify(redemptionExecutor, never()).consume(any(), any())
 	}
 
 	@Test
-	fun `redeem is case-insensitive on the code`() {
+	fun `redeem looks up the normalized code and returns the executor result`() {
 		// given
-		givenCoupon(code = "WIOSNA", country = "PL")
+		whenever(couponRepository.findByCode("WIOSNA")).thenReturn(coupon(country = "PL"))
 		geoIp.country = CountryCode.of("PL")
-		redemptionRepository.outcome = ConsumeOutcome.Redeemed(currentUses = 1, maxUses = 3)
+		whenever(redemptionExecutor.consume(any(), any())).thenReturn(RedemptionResult.Success)
 
 		// when
-		val result = operations.redeem(RedeemCouponCommand(code = "wiosna", userId = userId, clientIp = clientIp))
+		val result = operations.redeem(RedeemCouponCommand(CouponCode.of("wiosna"), userId, clientIp))
 
 		// then
-		assertIs<RedemptionResult.Success>(result)
-	}
-
-	@Test
-	fun `redeem success reports remaining uses`() {
-		// given
-		givenCoupon(code = "WIOSNA", country = "PL")
-		geoIp.country = CountryCode.of("PL")
-		redemptionRepository.outcome = ConsumeOutcome.Redeemed(currentUses = 1, maxUses = 3)
-
-		// when
-		val result = operations.redeem(RedeemCouponCommand("WIOSNA", userId, clientIp))
-
-		// then
-		val success = assertIs<RedemptionResult.Success>(result)
-		assertEquals(2, success.remainingUses)
-		assertEquals("PL", success.country)
-	}
-
-	@Test
-	fun `redeem maps LimitReached`() {
-		// given
-		givenCoupon(code = "WIOSNA", country = "PL")
-		geoIp.country = CountryCode.of("PL")
-		redemptionRepository.outcome = ConsumeOutcome.LimitReached
-
-		// when
-		val result = operations.redeem(RedeemCouponCommand("WIOSNA", userId, clientIp))
-
-		// then
-		assertEquals(RedemptionResult.LimitReached, result)
-	}
-
-	@Test
-	fun `redeem maps AlreadyRedeemed`() {
-		// given
-		givenCoupon(code = "WIOSNA", country = "PL")
-		geoIp.country = CountryCode.of("PL")
-		redemptionRepository.outcome = ConsumeOutcome.AlreadyRedeemed
-
-		// when
-		val result = operations.redeem(RedeemCouponCommand("WIOSNA", userId, clientIp))
-
-		// then
-		assertEquals(RedemptionResult.AlreadyRedeemedByUser, result)
+		assertEquals(RedemptionResult.Success, result)
 	}
 
 	@Test
 	fun `redeem propagates geo-IP failure (fail-closed) and never touches the store`() {
 		// given
-		givenCoupon(code = "WIOSNA", country = "PL")
+		whenever(couponRepository.findByCode("WIOSNA")).thenReturn(coupon(country = "PL"))
 		geoIp.failure = GeoIpUnavailableException("1.1.1.1")
 
 		// when
 		assertFailsWith<GeoIpUnavailableException> {
-			operations.redeem(RedeemCouponCommand("WIOSNA", userId, clientIp))
+			operations.redeem(RedeemCouponCommand(CouponCode.of("WIOSNA"), userId, clientIp))
 		}
 
 		// then
-		assertEquals(0, redemptionRepository.consumeCalls)
+		verify(redemptionExecutor, never()).consume(any(), any())
 	}
 
-	private fun givenCoupon(code: String, country: String) {
-		operations.createCoupon(CreateCouponCommand(code = code, maxUses = 3, country = country))
-	}
-}
+	private fun coupon(country: String) =
+		CouponEntity(
+			id = UUID.randomUUID(),
+			code = "WIOSNA",
+			createdAt = Instant.now(clock),
+			maxUses = 3,
+			currentUses = 0,
+			country = country,
+		)
 
-private class FakeCouponRepository : CouponRepository {
-	private val byCode = mutableMapOf<String, Coupon>()
-
-	override fun save(coupon: Coupon): Coupon {
-		if (byCode.containsKey(coupon.code)) throw CouponCodeAlreadyExistsException(coupon.code)
-		byCode[coupon.code] = coupon
-		return coupon
-	}
-
-	override fun findByCode(normalizedCode: String): Coupon? = byCode[normalizedCode]
-}
-
-private class FakeCouponRedemptionRepository : CouponRedemptionRepository {
-	var outcome: ConsumeOutcome = ConsumeOutcome.Redeemed(currentUses = 1, maxUses = 3)
-	var consumeCalls = 0
-
-	override fun consume(couponId: UUID, userId: UUID): ConsumeOutcome {
-		consumeCalls++
-		return outcome
-	}
+	/** Mirrors how Spring wraps a Hibernate constraint failure: a DIV whose cause carries the constraint name. */
+	private fun dataIntegrityViolation(constraint: String) =
+		DataIntegrityViolationException(
+			"boom",
+			ConstraintViolationException("boom", SQLException("boom"), ConstraintViolationException.ConstraintKind.OTHER, constraint),
+		)
 }
 
 private class FakeGeoIpResolver : GeoIpResolver {
