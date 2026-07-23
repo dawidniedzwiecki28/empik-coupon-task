@@ -1,6 +1,9 @@
 spring:
   application:
     name: coupon
+  threads:
+    virtual:
+      enabled: true  # JDK 21 virtual threads: blocking JDBC no longer pins a platform thread (no JVM locks to pin on)
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/coupon}
     username: ${DB_USERNAME:coupon}

@@ -133,12 +133,16 @@ insert + increment + compensating delete in one transaction is what makes that u
 a redemption row.
 
 Because the country lookup is a **local, in-memory database read** (see below), it adds no network
-latency to the transaction. The application is stateless, so it **scales to N pods for free** — the
+latency to the transaction. The application is stateless, so it **scales horizontally** — the
 concurrency guarantees live in the database, not the process.
 
-The behaviour is proven by tests that race many users for a limited coupon (in
-`CouponOperationsIntegrationTest` and `CouponRestIntegrationTest`) and assert that *exactly* `maxUses`
-succeed.
+Requests run on **JDK 21 virtual threads** (`spring.threads.virtual.enabled`), so the blocking JDBC
+calls scale to far more concurrent requests than a fixed platform-thread pool would — without adopting
+a reactive stack. The code holds no JVM locks, so nothing pins a carrier thread; the real ceiling is
+the database (connections, per-coupon row contention), not application threads.
+
+The behaviour is proven by a test that races many users for a limited coupon (`CouponOperationsTest`)
+and asserts that *exactly* `maxUses` succeed.
 
 ## Geo-IP
 
