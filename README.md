@@ -219,7 +219,7 @@ then:
 BASE=http://some-host:8080 ./scripts/acceptance.sh
 ```
 
-Needs `bash`, `curl`, `python3`, `uuidgen`.
+Needs `bash`, `curl`, `python3`, `uuidgen`, `seq`, and `xargs` (with `-P`).
 
 ## Code review & quality gates
 

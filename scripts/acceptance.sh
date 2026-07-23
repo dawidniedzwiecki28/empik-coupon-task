@@ -10,7 +10,7 @@
 #   - the service is running (see the README "Running it" section) and was
 #     started with COUPON_REST_TRUST_CLIENT_IP=true, so this script can set the
 #     caller's country via the X-Forwarded-For header;
-#   - bash, curl, python3 and uuidgen on the PATH.
+#   - bash, curl, python3, uuidgen, seq and xargs (with -P) on the PATH.
 #
 # Usage:
 #   ./scripts/acceptance.sh                     # against http://localhost:8080
@@ -19,7 +19,7 @@
 set -uo pipefail
 
 BASE=${BASE:-http://localhost:8080}
-RUN=$(date +%s)            # unique code suffix so re-runs don't collide
+RUN="$(date +%s)$RANDOM"   # unique code suffix (time + randomness) so parallel runs don't collide
 US='8.8.8.8'               # geolocates to US in the bundled DB
 pass=0; fail=0
 
@@ -82,11 +82,10 @@ create "POLAND$RUN" 5 PL >/dev/null
 expect "wrong country"                     403 "$(redeem "POLAND$RUN" "$(uuidgen)" "$US")"
 body=$(curl -s -X POST "$BASE/api/coupons/redemptions" -H 'Content-Type: application/json' \
   -H "X-Forwarded-For: $US" -d "{\"code\":\"POLAND$RUN\",\"userId\":\"$(uuidgen)\"}")
-if echo "$body" | grep -q '"requiredCountry":"PL"' && echo "$body" | grep -q '"callerCountry":"US"'; then
-  printf '  \033[32mPASS\033[0m  %-42s\n' "403 problem+json carries both countries"; pass=$((pass+1))
-else
-  printf '  \033[31mFAIL\033[0m  %-42s %s\n' "403 body missing country fields" "$body"; fail=$((fail+1))
-fi
+countries=$(printf '%s' "$body" | python3 -c \
+  'import json,sys; b=json.load(sys.stdin); print(b.get("requiredCountry"), b.get("callerCountry"), sep="/")' \
+  2>/dev/null || echo "parse-error")
+expect "403 problem+json carries both countries" "PL/US" "$countries"
 hr
 
 # ── 3. concurrency correctness: exactly maxUses win the race ────────────
@@ -124,6 +123,7 @@ dt=t1-t0; total=ok+err
 print(f"  {total} requests in {dt:.2f}s  ->  {total/dt:,.0f} req/s   ({ok} x 200, {err} non-200)")
 print("  note: bounded by curl/shell spawn on localhost, not the app's ceiling")
 PY
+expect "all load-burst requests returned 200" 0 "$nerr"
 echo "  single-request latency samples:"
 for _ in 1 2 3; do
   curl -s -o /dev/null -w "    %{time_total}s (HTTP %{http_code})\n" -X POST "$BASE/api/coupons/redemptions" \
