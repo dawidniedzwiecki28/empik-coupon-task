@@ -206,6 +206,21 @@ A pyramid — each concern tested at the layer that owns it, without duplication
 - **Architecture** — `ArchitectureTest` (ArchUnit) enforces the layer boundaries above.
 - Coverage is gated in CI at **93%** (JaCoCo), excluding framework wiring and data holders.
 
+### Live acceptance & load check
+
+`scripts/acceptance.sh` black-box-tests a **running** instance: it walks every create/redeem outcome,
+proves the concurrency guarantee (500 users race for 50 slots → *exactly* 50 succeed), fires a
+2000-request load burst, and prints a pass/fail summary. Start the app with
+`COUPON_REST_TRUST_CLIENT_IP=true` (so the script can set the caller's country via `X-Forwarded-For`),
+then:
+
+```bash
+./scripts/acceptance.sh                       # against http://localhost:8080
+BASE=http://some-host:8080 ./scripts/acceptance.sh
+```
+
+Needs `bash`, `curl`, `python3`, `uuidgen`.
+
 ## Code review & quality gates
 
 AI-assisted review (CodeRabbit, configured via `.coderabbit.yaml` with the architecture and
