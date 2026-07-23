@@ -186,6 +186,20 @@ class CouponOperationsTest @Autowired constructor(
 	}
 
 	@Test
+	fun `a repeat user on a full coupon is rejected as limit-reached, not already-redeemed`() {
+		// given — the user takes the only slot, filling the coupon
+		create(code = "SOLO", maxUses = 1)
+		val user = UUID.randomUUID()
+		assertEquals(RedemptionResult.Success, redeem(code = "SOLO", user = user))
+
+		// when — the same user retries the now-full coupon
+		val again = redeem(code = "SOLO", user = user)
+
+		// then — the sold-out fast-path answers before the per-user check
+		assertEquals(RedemptionResult.LimitReached, again)
+	}
+
+	@Test
 	fun `fails closed and records nothing when the caller country cannot be resolved`() {
 		// given
 		val id = create(code = "WIOSNA")

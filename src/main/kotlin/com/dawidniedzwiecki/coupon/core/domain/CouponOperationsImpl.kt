@@ -68,6 +68,14 @@ class CouponOperationsImpl(
 			return RedemptionResult.CountryNotAllowed(coupon.country, callerCountry.value)
 		}
 
+		// Fast-path a sold-out coupon: current_uses only ever grows, so a full snapshot is final. This sheds
+		// the insert + compensating-delete churn from doomed requests; the atomic UPDATE in consume() stays
+		// the real guard against the fill-up race.
+		if (coupon.currentUses >= coupon.maxUses) {
+			log.debug("Redemption rejected: outcome=LIMIT_REACHED couponId={} userId={}", coupon.persistedId, command.userId.value)
+			return RedemptionResult.LimitReached
+		}
+
 		return consume(coupon.persistedId, command.userId.value)
 	}
 
