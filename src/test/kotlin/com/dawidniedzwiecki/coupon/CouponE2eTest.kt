@@ -100,8 +100,11 @@ class CouponE2eTest @Autowired constructor(
 		createCoupon("SOLDOUT", maxUses = 1).andExpect { status { isCreated() } }
 		redeem("SOLDOUT", UUID.randomUUID()).andExpect { status { isOk() } }
 
-		// expect — a new caller gets 409 problem+json carrying the distinct type, through the full stack
-		redeem("SOLDOUT", UUID.randomUUID()).andExpect {
+		// when — a new caller tries the now-full coupon
+		val result = redeem("SOLDOUT", UUID.randomUUID())
+
+		// then — 409 problem+json carrying the distinct type, through the full stack
+		result.andExpect {
 			status { isConflict() }
 			content { contentType(MediaType.APPLICATION_PROBLEM_JSON) }
 			jsonPath("$.type") { value("urn:coupon:limit-reached") }

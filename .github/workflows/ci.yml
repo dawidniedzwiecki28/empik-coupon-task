@@ -40,6 +40,15 @@ jobs:
           update-comment: true
           # Required coverage — the job fails (CI not green) below this.
           min-coverage-overall: 93
-      # Build the runtime image so the Dockerfile can't silently rot (it isn't loaded/pushed anywhere).
+
+  # Separate job so image validation runs independently of (and parallel to) the test job — a test or
+  # coverage failure can't mask a broken Dockerfile, and the recompile overlaps rather than adds latency.
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      # Build the runtime image so the Dockerfile can't silently rot (not loaded or pushed anywhere).
       - name: Build Docker image
         run: docker build -t coupon-app:ci .
