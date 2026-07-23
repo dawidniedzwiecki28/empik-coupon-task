@@ -9,8 +9,8 @@ value class CountryCode private constructor(val value: String) {
 		fun of(raw: String): CountryCode {
 			// Validate before uppercasing — else a 1-char input like "ß" expands to "SS" and passes.
 			val trimmed = raw.trim()
-			require(trimmed.length == 2 && trimmed.all { it in 'A'..'Z' || it in 'a'..'z' }) {
-				"Invalid ISO 3166-1 alpha-2 country code: '$raw'"
+			if (trimmed.length != 2 || !trimmed.all { it in 'A'..'Z' || it in 'a'..'z' }) {
+				throw InvalidValueException("Invalid ISO 3166-1 alpha-2 country code: '$raw'")
 			}
 			return CountryCode(trimmed.uppercase())
 		}
@@ -28,7 +28,7 @@ value class IpAddress private constructor(val value: String) {
 	companion object {
 		fun of(raw: String): IpAddress {
 			val trimmed = raw.trim()
-			require(isIpv4(trimmed) || isIpv6(trimmed)) { "Invalid IP address: '$raw'" }
+			if (!isIpv4(trimmed) && !isIpv6(trimmed)) throw InvalidValueException("Invalid IP address: '$raw'")
 			return IpAddress(trimmed)
 		}
 
@@ -78,7 +78,9 @@ value class CouponCode private constructor(val value: String) {
 
 		fun of(raw: String): CouponCode {
 			val normalized = raw.trim().uppercase()
-			require(normalized.isNotEmpty() && normalized.length <= MAX_LENGTH) { "Invalid coupon code: '$raw'" }
+			if (normalized.isEmpty() || normalized.length > MAX_LENGTH) {
+				throw InvalidValueException("Invalid coupon code: '$raw'")
+			}
 			return CouponCode(normalized)
 		}
 	}
@@ -122,6 +124,13 @@ sealed interface RedemptionResult {
 
 	data object AlreadyRedeemedByUser : RedemptionResult
 }
+
+/**
+ * A request value (coupon code, country, IP) was rejected at construction. Extends
+ * IllegalArgumentException so the REST edge can map it to 400 without swallowing unrelated
+ * IllegalArgumentExceptions raised by a defect deeper in the stack.
+ */
+class InvalidValueException(message: String) : IllegalArgumentException(message)
 
 /** Thrown when creating a coupon whose normalized code already exists. */
 class CouponCodeAlreadyExistsException(val code: String) :

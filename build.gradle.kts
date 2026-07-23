@@ -96,6 +96,7 @@ tasks.jacocoTestReport {
 					"**/CouponRedemptionEntity*",
 					"**/CouponRedemptionId*",
 					"**/GeoIpProperties*",
+					"**/rest/dto/**",
 				)
 			}
 		}),
