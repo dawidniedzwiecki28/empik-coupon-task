@@ -6,13 +6,10 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 
 /**
- * Resolves the caller's IP for country authorization.
- *
- * The country check is only as trustworthy as the address it runs on, so by default only the
- * transport remote address is used. The `X-Forwarded-For` header is honored only when
- * `coupon.rest.trust-client-ip` is enabled, which is safe solely behind an ingress that overwrites
- * that header. Enabling it on a directly exposed service would let a caller spoof its country and
- * bypass the restriction.
+ * Resolves the caller's IP for the country check. That check is only as trustworthy as the address it
+ * runs on, so by default only the transport remote address is used; the spoofable `X-Forwarded-For`
+ * header is honored only when `coupon.rest.trust-client-ip` is set — safe solely behind an ingress
+ * that overwrites it.
  */
 @Component
 class ClientIpResolver(

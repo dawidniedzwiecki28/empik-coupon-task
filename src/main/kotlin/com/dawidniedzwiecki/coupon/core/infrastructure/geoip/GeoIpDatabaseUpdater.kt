@@ -18,13 +18,9 @@ import java.time.YearMonth
 import java.util.zip.GZIPInputStream
 
 /**
- * Fetches a fresh IP→country database and hot-swaps it into [GeoIpDatabase] — once on startup and then
- * on the configured cron. Best-effort: any failure is logged and the current database is kept, so a
- * refresh never delays readiness beyond the download nor takes the service down.
- *
- * Only created when `geoip.update-url` is set; the default deployment runs on the bundled snapshot
- * and refreshes it by redeploying a new image. Its scheduled method is activated by @EnableScheduling
- * on the application class.
+ * Fetches a fresh IP→country database and hot-swaps it into [GeoIpDatabase] on startup and on the
+ * configured cron. Best-effort: any failure is logged and the current database is kept. Created only
+ * when `geoip.update-url` is set; otherwise the app runs on the bundled snapshot.
  */
 @Component
 @ConditionalOnProperty(prefix = "geoip", name = ["update-url"])
@@ -52,8 +48,7 @@ class GeoIpDatabaseUpdater(
 			Thread.currentThread().interrupt()
 			log.warn("Geo-IP database refresh ({}) interrupted; keeping current database", trigger)
 		} catch (e: Exception) {
-			// Deliberately broad: a background refresh must never escape and disturb request serving.
-			// Logged at ERROR (with stack trace) so a database that has stopped refreshing is visible.
+			// Broad on purpose: a background refresh must never escape; ERROR so a stalled refresh is visible.
 			log.error("Geo-IP database refresh ({}) failed; keeping current database", trigger, e)
 		}
 	}

@@ -9,10 +9,9 @@ import java.io.IOException
 import java.net.InetAddress
 
 /**
- * Resolves a caller's country from a local IP→country database (MaxMind-format, in-memory, no network
- * call or quota). Fail-closed: an unmapped address (e.g. a private/reserved range) or any lookup error
- * raises GeoIpUnavailableException so a country-restricted coupon is never redeemed on an unverified
- * country. Used directly by the domain — like the Spring Data repositories, no extra port abstraction.
+ * Resolves a caller's country from a local, in-memory IP→country database. Fail-closed: an unmapped
+ * address or any lookup error raises GeoIpUnavailableException, so a restricted coupon is never
+ * redeemed on an unverified country.
  */
 @Component
 open class GeoIpResolver(private val database: GeoIpDatabase) {

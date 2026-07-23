@@ -199,7 +199,7 @@ class CouponRestIntegrationTest @Autowired constructor(
 		createCoupon(code = "WIOSNA", maxUses = 3, country = "PL")
 		stubCountry(ip = "9.9.9.9", country = "PL")
 
-		// expect — first hop of X-Forwarded-For is used when no override is supplied
+		// expect — the first X-Forwarded-For hop is used as the caller IP
 		mockMvc.post("/api/coupons/redemptions") {
 			contentType = MediaType.APPLICATION_JSON
 			headers { add("X-Forwarded-For", "9.9.9.9, 10.0.0.1") }

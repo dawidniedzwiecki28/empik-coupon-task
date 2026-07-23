@@ -17,10 +17,7 @@ class GeoIpConfiguration {
 
 	private val log = LoggerFactory.getLogger(javaClass)
 
-	/**
-	 * The startup baseline database, always available even offline: an external file if configured,
-	 * otherwise the bundled classpath snapshot. [GeoIpDatabase] allows it to be hot-swapped later.
-	 */
+	/** The startup baseline database: an external file if configured, else the bundled snapshot. */
 	@Bean
 	fun geoIpDatabase(properties: GeoIpProperties): GeoIpDatabase = GeoIpDatabase(loadBaseline(properties))
 
@@ -28,8 +25,7 @@ class GeoIpConfiguration {
 		val externalPath = properties.databasePath
 		if (!externalPath.isNullOrBlank()) {
 			log.info("Loading geo-IP database from external file: {}", externalPath)
-			// MEMORY (not the Builder(File) default MEMORY_MAPPED) so no reader holds an OS handle/mmap:
-			// hot-swapped readers can then be dropped for GC without a file lock or an unsafe close().
+			// MEMORY, not the Builder(File) default MEMORY_MAPPED, so a hot-swapped reader holds no file handle.
 			return DatabaseReader.Builder(File(externalPath)).fileMode(Reader.FileMode.MEMORY).build()
 		}
 		log.info("Loading bundled geo-IP database: {}", BUNDLED_DATABASE)

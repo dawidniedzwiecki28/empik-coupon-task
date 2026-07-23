@@ -3,11 +3,7 @@ package com.dawidniedzwiecki.coupon.core.infrastructure.geoip
 import com.maxmind.geoip2.DatabaseReader
 import java.util.concurrent.atomic.AtomicReference
 
-/**
- * Holds the active IP→country [DatabaseReader] and lets it be hot-swapped when a fresher database is
- * fetched. Reads are lock-free; [swap] atomically publishes a new reader so in-flight lookups keep
- * using the old one.
- */
+/** Holds the active IP→country reader and hot-swaps it atomically; reads are lock-free. */
 class GeoIpDatabase(initial: DatabaseReader) : AutoCloseable {
 
 	private val current = AtomicReference(initial)
@@ -15,9 +11,8 @@ class GeoIpDatabase(initial: DatabaseReader) : AutoCloseable {
 	fun reader(): DatabaseReader = current.get()
 
 	fun swap(next: DatabaseReader) {
-		// Every reader is loaded in MEMORY mode (no file handle/mmap), so the displaced one holds only
-		// heap and is reclaimed by GC. It is intentionally not close()d here: a concurrent lookup may
-		// still be mid-read on it during the swap, and closing would break that lookup.
+		// Readers are in MEMORY mode (no file handle), so the displaced one is just heap for GC.
+		// Not close()d: a concurrent lookup may still be mid-read on it.
 		current.set(next)
 	}
 

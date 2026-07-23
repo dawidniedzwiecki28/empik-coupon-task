@@ -7,7 +7,7 @@ spring:
     password: ${DB_PASSWORD:coupon}
   jpa:
     hibernate:
-      ddl-auto: validate  # Flyway owns the schema; validate only checks the mapping matches it.
+      ddl-auto: validate  # Flyway owns the schema; validate only checks the mapping against it.
     open-in-view: false
     properties:
       hibernate:
@@ -17,17 +17,12 @@ spring:
     enabled: true
   mvc:
     problemdetails:
-      enabled: true  # validation / not-readable errors return RFC 9457 ProblemDetail
+      enabled: true  # framework errors (validation, unreadable body) also render as RFC 9457 ProblemDetail
 
 geoip:
-  # IP→country is resolved from a bundled DB-IP Lite snapshot (CC-BY-4.0; see NOTICE). Point
-  # GEOIP_DATABASE_PATH at an external .mmdb to use a fresher database as the startup baseline.
+  # Bundled DB-IP Lite snapshot (CC-BY-4.0; see NOTICE). Set GEOIP_DATABASE_PATH to an external .mmdb.
   database-path: ${GEOIP_DATABASE_PATH:}
-  # Optional auto-update: set GEOIP_UPDATE_URL (→ geoip.update-url) to fetch a fresh database on startup
-  # and on update-cron, hot-swapping it in memory; any failure falls back to the current database. Left
-  # unset by default so the demo/CI run offline and deterministically — prefer refreshing via image
-  # redeploy. Example URL: https://download.db-ip.com/free/dbip-country-lite-{date}.mmdb.gz
-  # ({date} → current yyyy-MM). When enabled, override the schedule with GEOIP_UPDATE_CRON.
+  # Set GEOIP_UPDATE_URL to auto-refresh the database on startup and on this cron; unset = bundled only.
   update-cron: ${GEOIP_UPDATE_CRON:0 0 3 * * *}
 
 management:

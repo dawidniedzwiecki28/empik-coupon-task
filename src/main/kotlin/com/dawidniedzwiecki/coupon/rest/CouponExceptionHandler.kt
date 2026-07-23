@@ -16,16 +16,11 @@ class CouponExceptionHandler {
 	fun handleDuplicateCode(ex: CouponCodeAlreadyExistsException): ProblemDetail =
 		ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, "A coupon with this code already exists")
 
-	/** Fail-closed: if the caller's country can't be verified, the redemption is not attempted. */
 	@ExceptionHandler(GeoIpUnavailableException::class)
 	fun handleGeoIpUnavailable(ex: GeoIpUnavailableException): ProblemDetail =
 		ProblemDetail.forStatusAndDetail(HttpStatus.SERVICE_UNAVAILABLE, "Unable to verify the caller's country")
 
-	/**
-	 * A malformed value object (code, country, IP) rejected at construction. Scoped to
-	 * InvalidValueException so an unexpected IllegalArgumentException from deeper in the stack
-	 * still surfaces as 500 rather than being mislabelled a client error.
-	 */
+	// Scoped to InvalidValueException so an unrelated IllegalArgumentException deeper in the stack stays a 500, not a 400.
 	@ExceptionHandler(InvalidValueException::class)
 	fun handleInvalidInput(ex: InvalidValueException): ProblemDetail =
 		ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.message ?: "Invalid request")

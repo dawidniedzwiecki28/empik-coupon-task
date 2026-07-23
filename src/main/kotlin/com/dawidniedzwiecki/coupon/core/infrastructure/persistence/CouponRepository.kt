@@ -9,7 +9,7 @@ interface CouponRepository : JpaRepository<CouponEntity, UUID> {
 
 	fun findByCode(code: String): CouponEntity?
 
-	/** Atomic increment: returns 1 only while below the limit (callers can't exceed max_uses), 0 when exhausted. */
+	/** Atomic and capped: returns 1 while below max_uses, 0 once it is reached. */
 	@Modifying
 	@Query(
 		value = "UPDATE coupons SET current_uses = current_uses + 1 WHERE id = :id AND current_uses < max_uses",
