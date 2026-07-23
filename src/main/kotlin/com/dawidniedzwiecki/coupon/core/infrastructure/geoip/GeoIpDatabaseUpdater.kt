@@ -2,9 +2,11 @@ package com.dawidniedzwiecki.coupon.core.infrastructure.geoip
 
 import com.maxmind.geoip2.DatabaseReader
 import org.slf4j.LoggerFactory
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled
+import org.springframework.stereotype.Component
 import java.io.ByteArrayInputStream
 import java.net.URI
 import java.net.http.HttpClient
@@ -20,9 +22,12 @@ import java.util.zip.GZIPInputStream
  * on the configured cron. Best-effort: any failure is logged and the current database is kept, so a
  * refresh never delays readiness beyond the download nor takes the service down.
  *
- * Only created when `geoip.update-url` is set (see GeoIpUpdateConfiguration); the default deployment
- * runs on the bundled snapshot and refreshes it by redeploying a new image.
+ * Only created when `geoip.update-url` is set; the default deployment runs on the bundled snapshot
+ * and refreshes it by redeploying a new image. Its scheduled method is activated by @EnableScheduling
+ * on the application class.
  */
+@Component
+@ConditionalOnProperty(prefix = "geoip", name = ["update-url"])
 class GeoIpDatabaseUpdater(
 	private val database: GeoIpDatabase,
 	private val properties: GeoIpProperties,
