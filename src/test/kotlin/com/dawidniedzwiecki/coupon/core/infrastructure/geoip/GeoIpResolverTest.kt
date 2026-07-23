@@ -7,9 +7,9 @@ import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
-class MaxMindGeoIpResolverTest {
+class GeoIpResolverTest {
 
-	private val resolver = MaxMindGeoIpResolver(GeoIpDatabase(GeoIpTestFixtures.bundledReader()))
+	private val resolver = GeoIpResolver(GeoIpDatabase(GeoIpTestFixtures.bundledReader()))
 
 	@Test
 	fun `resolves the country of a public IP from the bundled database`() {

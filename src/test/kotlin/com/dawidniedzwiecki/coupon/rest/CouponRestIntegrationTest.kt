@@ -4,7 +4,9 @@ import com.dawidniedzwiecki.coupon.TestcontainersConfiguration
 import com.dawidniedzwiecki.coupon.core.api.CountryCode
 import com.dawidniedzwiecki.coupon.core.api.GeoIpUnavailableException
 import com.dawidniedzwiecki.coupon.core.api.IpAddress
+import com.dawidniedzwiecki.coupon.core.infrastructure.geoip.GeoIpDatabase
 import com.dawidniedzwiecki.coupon.core.infrastructure.geoip.GeoIpResolver
+import com.dawidniedzwiecki.coupon.core.infrastructure.geoip.GeoIpTestFixtures
 import com.dawidniedzwiecki.coupon.core.infrastructure.persistence.CouponRedemptionRepository
 import com.dawidniedzwiecki.coupon.core.infrastructure.persistence.CouponRepository
 import org.junit.jupiter.api.BeforeEach
@@ -234,8 +236,11 @@ class CouponRestIntegrationTest @Autowired constructor(
 	private fun stubCountry(ip: String, country: String) = geoIp.put(ip, country)
 }
 
-/** In-memory [GeoIpResolver] the REST suite drives per test; unmapped or explicitly-failed IPs fail closed. */
-class FakeGeoIpResolver : GeoIpResolver {
+/**
+ * In-memory geo-IP resolver the REST suite drives per test; unmapped or explicitly-failed IPs fail
+ * closed. Subclasses the concrete resolver (no interface); the bundled database is never consulted.
+ */
+class FakeGeoIpResolver : GeoIpResolver(GeoIpDatabase(GeoIpTestFixtures.bundledReader())) {
 	private val countries = ConcurrentHashMap<String, CountryCode>()
 	private val unavailable = ConcurrentHashMap.newKeySet<String>()
 

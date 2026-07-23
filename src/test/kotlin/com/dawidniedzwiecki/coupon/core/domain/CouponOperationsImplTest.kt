@@ -9,7 +9,9 @@ import com.dawidniedzwiecki.coupon.core.api.IpAddress
 import com.dawidniedzwiecki.coupon.core.api.RedeemCouponCommand
 import com.dawidniedzwiecki.coupon.core.api.RedemptionResult
 import com.dawidniedzwiecki.coupon.core.api.UserId
+import com.dawidniedzwiecki.coupon.core.infrastructure.geoip.GeoIpDatabase
 import com.dawidniedzwiecki.coupon.core.infrastructure.geoip.GeoIpResolver
+import com.dawidniedzwiecki.coupon.core.infrastructure.geoip.GeoIpTestFixtures
 import com.dawidniedzwiecki.coupon.core.infrastructure.persistence.CouponEntity
 import com.dawidniedzwiecki.coupon.core.infrastructure.persistence.CouponRepository
 import org.hibernate.exception.ConstraintViolationException
@@ -175,12 +177,17 @@ class CouponOperationsImplTest {
 		)
 }
 
-private class FakeGeoIpResolver : GeoIpResolver {
+/** No interface to mock, so the double subclasses the resolver; the bundled database is never consulted. */
+private class FakeGeoIpResolver : GeoIpResolver(SHARED_DATABASE) {
 	var country: CountryCode = CountryCode.of("PL")
 	var failure: GeoIpUnavailableException? = null
 
 	override fun resolveCountry(ip: IpAddress): CountryCode {
 		failure?.let { throw it }
 		return country
+	}
+
+	private companion object {
+		val SHARED_DATABASE = GeoIpDatabase(GeoIpTestFixtures.bundledReader())
 	}
 }
