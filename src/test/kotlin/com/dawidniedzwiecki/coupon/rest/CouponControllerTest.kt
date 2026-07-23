@@ -61,7 +61,7 @@ class CouponControllerTest @Autowired constructor(
 		// when
 		val result = createRequest("""{"code":"wiosna","maxUses":100,"country":"pl"}""")
 
-		// then — 201 with the id in the body and a Location header pointing at the new resource
+		// then - 201 with the id in the body and a Location header pointing at the new resource
 		result.andExpect {
 			status { isCreated() }
 			header { string("Location", "/api/coupons/$id") }
@@ -90,7 +90,7 @@ class CouponControllerTest @Autowired constructor(
 
 	@Test
 	fun `create rejects a malformed country with a 400 problem`() {
-		// expect — CountryCode.of rejects it, mapped to 400 not 500
+		// expect - CountryCode.of rejects it, mapped to 400 not 500
 		createRequest("""{"code":"X","maxUses":1,"country":"XYZ"}""").andExpect {
 			status { isBadRequest() }
 			content { contentType(MediaType.APPLICATION_PROBLEM_JSON) }
@@ -99,7 +99,7 @@ class CouponControllerTest @Autowired constructor(
 
 	@Test
 	fun `create rejects a body missing required fields with a 400 problem`() {
-		// expect — absent maxUses/country is a malformed request, not a 500
+		// expect - absent maxUses/country is a malformed request, not a 500
 		createRequest("""{"code":"X"}""").andExpect {
 			status { isBadRequest() }
 			content { contentType(MediaType.APPLICATION_PROBLEM_JSON) }
@@ -163,7 +163,7 @@ class CouponControllerTest @Autowired constructor(
 		// when
 		val result = redeemRequest("""{"code":"wiosna","userId":"$userId"}""")
 
-		// then — code normalized, IP resolved from the remote address
+		// then - code normalized, IP resolved from the remote address
 		result.andExpect { status { isOk() } }
 		verify {
 			operations.redeem(RedeemCouponCommand(CouponCode.of("WIOSNA"), UserId(userId), IpAddress.of("127.0.0.1")))
@@ -187,7 +187,7 @@ class CouponControllerTest @Autowired constructor(
 		// given
 		every { operations.redeem(any()) } returns RedemptionResult.LimitReached
 
-		// expect — same status as already-redeemed, but a machine-distinguishable type
+		// expect - same status as already-redeemed, but a machine-distinguishable type
 		redeemRequest().andExpect {
 			status { isConflict() }
 			content { contentType(MediaType.APPLICATION_PROBLEM_JSON) }
@@ -200,7 +200,7 @@ class CouponControllerTest @Autowired constructor(
 		// given
 		every { operations.redeem(any()) } returns RedemptionResult.AlreadyRedeemedByUser
 
-		// expect — the other 409, told apart from limit-reached by its type
+		// expect - the other 409, told apart from limit-reached by its type
 		redeemRequest().andExpect {
 			status { isConflict() }
 			content { contentType(MediaType.APPLICATION_PROBLEM_JSON) }
@@ -227,7 +227,7 @@ class CouponControllerTest @Autowired constructor(
 		// given
 		every { operations.redeem(any()) } throws GeoIpUnavailableException("1.1.1.1")
 
-		// expect — the caller's IP can't be mapped to a country: unprocessable, not a server outage
+		// expect - the caller's IP can't be mapped to a country: unprocessable, not a server outage
 		redeemRequest().andExpect {
 			status { isUnprocessableEntity() }
 			content { contentType(MediaType.APPLICATION_PROBLEM_JSON) }
@@ -257,7 +257,7 @@ class CouponControllerTest @Autowired constructor(
 
 	@Test
 	fun `redeem rejects a body missing userId with a 400 problem`() {
-		// expect — an absent required field is a malformed request, not a 500
+		// expect - an absent required field is a malformed request, not a 500
 		redeemRequest("""{"code":"WIOSNA"}""").andExpect {
 			status { isBadRequest() }
 			content { contentType(MediaType.APPLICATION_PROBLEM_JSON) }

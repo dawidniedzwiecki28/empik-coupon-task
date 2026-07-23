@@ -8,8 +8,11 @@ import java.util.UUID
 
 interface CouponRedemptionRepository : JpaRepository<CouponRedemptionEntity, CouponRedemptionId> {
 
-	/** Returns 1 when inserted, 0 when the pair already exists — never throws on conflict. */
-	// clearAutomatically: keep the persistence context consistent with these native writes.
+	/**
+	 * Returns 1 when inserted, 0 when the pair already exists - never throws on conflict.
+	 *
+	 * `clearAutomatically` keeps the persistence context consistent with these native writes.
+	 */
 	@Modifying(clearAutomatically = true)
 	@Query(
 		value = "INSERT INTO coupon_redemptions (coupon_id, user_id, redeemed_at) VALUES (:couponId, :userId, :redeemedAt) " +

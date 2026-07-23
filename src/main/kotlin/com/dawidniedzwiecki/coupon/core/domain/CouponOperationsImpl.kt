@@ -43,10 +43,8 @@ class CouponOperationsImpl(
 	override fun findCoupon(id: CouponId): CouponView? =
 		couponRepository.findById(id.value).map { it.toView() }.orElse(null)
 
-	// One transaction spans the insert, conditional increment, and compensating delete so the tentative
-	// redemption's undo is atomic. The country lookup runs inside it too, but that's safe by design: it is
-	// a local, in-memory database read (no network call), so the row lock is held for microseconds, not an
-	// external round trip.
+	// One transaction so the insert, conditional increment, and compensating delete commit or undo atomically.
+	// The country lookup runs inside it too, but it's a local in-memory read (no network), so the lock is brief.
 	@Transactional
 	override fun redeem(command: RedeemCouponCommand): RedemptionResult {
 		val coupon = couponRepository.findByCode(command.code.value)

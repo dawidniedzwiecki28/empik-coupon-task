@@ -51,7 +51,7 @@ class CouponE2eTest @Autowired constructor(
 			.andExpect { status { isCreated() } }
 			.andReturn().response.getHeader("Location")!!
 
-		// expect — GET on the advertised location returns the coupon's current state
+		// expect - GET on the advertised location returns the coupon's current state
 		mockMvc.get(location).andExpect {
 			status { isOk() }
 			jsonPath("$.code") { value("READBACK") }
@@ -81,7 +81,7 @@ class CouponE2eTest @Autowired constructor(
 		// when
 		redeem("WIOSNA", user).andExpect { status { isOk() } }
 
-		// then — the second attempt is rejected
+		// then - the second attempt is rejected
 		redeem("WIOSNA", user).andExpect { status { isConflict() } }
 	}
 
@@ -90,20 +90,20 @@ class CouponE2eTest @Autowired constructor(
 		// given
 		createCoupon("WIOSNA").andExpect { status { isCreated() } }
 
-		// expect — code matching is case-insensitive end to end
+		// expect - code matching is case-insensitive end to end
 		redeem("wiosna", UUID.randomUUID()).andExpect { status { isOk() } }
 	}
 
 	@Test
 	fun `rejects a redemption once the limit is reached, with the limit-reached problem type`() {
-		// given — a single-use coupon, its one slot already taken
+		// given - a single-use coupon, its one slot already taken
 		createCoupon("SOLDOUT", maxUses = 1).andExpect { status { isCreated() } }
 		redeem("SOLDOUT", UUID.randomUUID()).andExpect { status { isOk() } }
 
-		// when — a new caller tries the now-full coupon
+		// when - a new caller tries the now-full coupon
 		val result = redeem("SOLDOUT", UUID.randomUUID())
 
-		// then — 409 problem+json carrying the distinct type, through the full stack
+		// then - 409 problem+json carrying the distinct type, through the full stack
 		result.andExpect {
 			status { isConflict() }
 			content { contentType(MediaType.APPLICATION_PROBLEM_JSON) }

@@ -5,7 +5,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
 // Validation is delegated to Guava, so this covers only our contract (accept + preserve, trim, reject
-// as InvalidValueException) — not the IP-parsing matrix, which Guava already tests.
+// as InvalidValueException) - not the IP-parsing matrix, which Guava already tests.
 class IpAddressTest {
 
 	@Test

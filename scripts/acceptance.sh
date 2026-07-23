@@ -53,7 +53,7 @@ echo; echo "Coupon service acceptance test  ->  $BASE   (run id $RUN)"; hr
 
 # ── 0. health ───────────────────────────────────────────────────────────
 health=$(curl -s -o /dev/null -w '%{http_code}' "$BASE/actuator/health")
-if [ "$health" != "200" ]; then echo "  app not healthy (/actuator/health = $health) — is it running?"; exit 1; fi
+if [ "$health" != "200" ]; then echo "  app not healthy (/actuator/health = $health) - is it running?"; exit 1; fi
 echo "  app is UP"; hr
 
 # ── 1. create: validation & duplicates ─────────────────────────────────

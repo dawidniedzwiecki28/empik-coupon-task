@@ -8,14 +8,13 @@ import org.springframework.stereotype.Component
 import java.io.IOException
 import java.net.InetAddress
 
-/** [GeoIpResolver] backed by a local, in-memory IP→country database — a sub-microsecond lookup, no network call. */
+/** [GeoIpResolver] backed by a local, in-memory IP→country database - a sub-microsecond lookup, no network call. */
 @Component
 class DatabaseGeoIpResolver(private val database: GeoIpDatabase) : GeoIpResolver {
 
 	override fun resolveCountry(ip: IpAddress): CountryCode =
 		try {
-			// IpAddress is already syntactically valid, so this parses a literal — no DNS lookup.
-			// country()/isoCode() are the record accessors; the .country/.isoCode getters are deprecated.
+			// IpAddress is already syntactically valid, so this parses a literal - no DNS lookup.
 			val isoCode = database.reader().country(InetAddress.getByName(ip.value)).country().isoCode()
 			// A null/blank code (address present but no country) fails closed via CountryCode.of.
 			CountryCode.of(isoCode.orEmpty())

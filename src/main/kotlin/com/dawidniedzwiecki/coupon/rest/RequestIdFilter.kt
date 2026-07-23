@@ -11,8 +11,8 @@ import org.springframework.web.filter.OncePerRequestFilter
 import java.util.UUID
 
 /**
- * Assigns every request a correlation id — the caller's `X-Request-Id` if present and well-formed, else a
- * fresh UUID — puts it in the SLF4J MDC (surfaced on each log line via `logging.pattern.level`) and echoes
+ * Assigns every request a correlation id - the caller's `X-Request-Id` if present and well-formed, else a
+ * fresh UUID - puts it in the SLF4J MDC (surfaced on each log line via `logging.pattern.level`) and echoes
  * it on the response. A supplied value is for tracing only and validated to a short id charset, so it can't
  * forge log lines (CRLF injection) or bloat them.
  */

@@ -24,7 +24,7 @@ class RequestIdFilterTest {
 		// when
 		filter.doFilter(MockHttpServletRequest(), response, MockFilterChain())
 
-		// then — a canonical UUID, not just any non-blank string
+		// then - a canonical UUID, not just any non-blank string
 		val id = response.getHeader(RequestIdFilter.HEADER)
 		assertNotNull(id)
 		assertEquals(id, UUID.fromString(id).toString())
@@ -45,7 +45,7 @@ class RequestIdFilterTest {
 
 	@Test
 	fun `replaces an unsafe caller-supplied request id to prevent log forging`() {
-		// given — newline + spaces would let a caller inject fake log lines
+		// given - newline + spaces would let a caller inject fake log lines
 		val request = MockHttpServletRequest().apply { addHeader(RequestIdFilter.HEADER, "bad\nid with spaces") }
 		val response = MockHttpServletResponse()
 
@@ -60,7 +60,7 @@ class RequestIdFilterTest {
 
 	@Test
 	fun `exposes the id in the MDC during the chain and clears it afterwards`() {
-		// given — capture what downstream code would see in the MDC
+		// given - capture what downstream code would see in the MDC
 		val request = MockHttpServletRequest().apply { addHeader(RequestIdFilter.HEADER, "trace-xyz") }
 		var idDuringChain: String? = null
 		val chain = FilterChain { _, _ -> idDuringChain = MDC.get(RequestIdFilter.MDC_KEY) }
@@ -68,7 +68,7 @@ class RequestIdFilterTest {
 		// when
 		filter.doFilter(request, MockHttpServletResponse(), chain)
 
-		// then — present for the duration of the request, then removed so the (pooled) thread doesn't leak it
+		// then - present for the duration of the request, then removed so the (pooled) thread doesn't leak it
 		assertEquals("trace-xyz", idDuringChain)
 		assertNull(MDC.get(RequestIdFilter.MDC_KEY))
 	}

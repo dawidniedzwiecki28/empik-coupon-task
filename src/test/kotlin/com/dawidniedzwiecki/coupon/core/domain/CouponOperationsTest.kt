@@ -120,7 +120,7 @@ class CouponOperationsTest @Autowired constructor(
 	}
 
 	@Test
-	fun `redeems case-insensitively — a differently-cased code hits the same coupon`() {
+	fun `redeems case-insensitively - a differently-cased code hits the same coupon`() {
 		// given
 		val id = create(code = "SuMMer")
 
@@ -194,7 +194,7 @@ class CouponOperationsTest @Autowired constructor(
 		// when
 		assertFailsWith<GeoIpUnavailableException> { redeem(code = "WIOSNA") }
 
-		// then — fail-closed: nothing is written
+		// then - fail-closed: nothing is written
 		assertEquals(0, coupons.findById(id.value).get().currentUses)
 		assertEquals(0L, redemptions.countByIdCouponId(id.value))
 	}
@@ -207,7 +207,7 @@ class CouponOperationsTest @Autowired constructor(
 		val id = create(code = "RUSH", maxUses = maxUses)
 		val pool = Executors.newFixedThreadPool(16)
 
-		// when — distinct users race for the slots
+		// when - distinct users race for the slots
 		val outcomes = try {
 			(1..attempts)
 				.map { pool.submit(Callable { redeem(code = "RUSH") }) }
@@ -216,7 +216,7 @@ class CouponOperationsTest @Autowired constructor(
 			pool.shutdown()
 		}
 
-		// then — exactly maxUses succeed, the rest hit the limit
+		// then - exactly maxUses succeed, the rest hit the limit
 		assertEquals(maxUses, outcomes.count { it == RedemptionResult.Success })
 		assertEquals(attempts - maxUses, outcomes.count { it == RedemptionResult.LimitReached })
 		assertEquals(maxUses, coupons.findById(id.value).get().currentUses)
@@ -225,13 +225,13 @@ class CouponOperationsTest @Autowired constructor(
 
 	@Test
 	fun `admits exactly one redemption when the same user races itself`() {
-		// given — one user, many concurrent attempts, plenty of slots so only the per-user rule can bind
+		// given - one user, many concurrent attempts, plenty of slots so only the per-user rule can bind
 		val attempts = 50
 		val id = create(code = "SAMEUSER", maxUses = attempts)
 		val user = UUID.randomUUID()
 		val pool = Executors.newFixedThreadPool(16)
 
-		// when — the same user fires all attempts at once
+		// when - the same user fires all attempts at once
 		val outcomes = try {
 			(1..attempts)
 				.map { pool.submit(Callable { redeem(code = "SAMEUSER", user = user) }) }
@@ -240,7 +240,7 @@ class CouponOperationsTest @Autowired constructor(
 			pool.shutdown()
 		}
 
-		// then — exactly one wins; the rest are rejected as already-redeemed and the counter moves once
+		// then - exactly one wins; the rest are rejected as already-redeemed and the counter moves once
 		assertEquals(1, outcomes.count { it == RedemptionResult.Success })
 		assertEquals(attempts - 1, outcomes.count { it == RedemptionResult.AlreadyRedeemedByUser })
 		assertEquals(1, coupons.findById(id.value).get().currentUses)

@@ -15,7 +15,7 @@ import org.springframework.test.web.servlet.post
 import java.util.UUID
 
 /**
- * With client-IP trust enabled, a malformed `X-Forwarded-For` must surface as a 400 problem+json — proving
+ * With client-IP trust enabled, a malformed `X-Forwarded-For` must surface as a 400 problem+json - proving
  * the resolver runs inside the controller (where @RestControllerAdvice maps its InvalidValueException),
  * not in a filter that would leak a 500. Separate slice because trust is off in [CouponControllerTest].
  */
@@ -34,7 +34,7 @@ class TrustedClientIpWebTest @Autowired constructor(
 
 	@Test
 	fun `redeem with a malformed X-Forwarded-For returns a 400 problem, not a 500`() {
-		// expect — resolver throws before the service is touched, and the advice maps it to 400
+		// expect - resolver throws before the service is touched, and the advice maps it to 400
 		mockMvc.post("/api/coupons/redemptions") {
 			contentType = MediaType.APPLICATION_JSON
 			headers { add("X-Forwarded-For", "not-an-ip") }
