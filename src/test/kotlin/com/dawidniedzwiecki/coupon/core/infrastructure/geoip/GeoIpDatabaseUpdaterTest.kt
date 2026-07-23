@@ -46,7 +46,7 @@ class GeoIpDatabaseUpdaterTest {
 		// when
 		updater.refreshOnStartup()
 
-		// then — a new reader was swapped in, and {date} resolved to the fixed clock's month
+		// then - a new reader was swapped in, and {date} resolved to the fixed clock's month
 		assertNotSame(original, database.reader())
 		assertTrue(requestedPaths.any { it == "/free/dbip-country-lite-2026-07.mmdb.gz" }, "was: $requestedPaths")
 	}
@@ -62,7 +62,7 @@ class GeoIpDatabaseUpdaterTest {
 		// when
 		updater.refreshOnSchedule()
 
-		// then — a failed refresh must not disturb the running database
+		// then - a failed refresh must not disturb the running database
 		assertSame(original, database.reader())
 	}
 
@@ -86,7 +86,7 @@ class GeoIpDatabaseUpdaterTest {
 		val database = GeoIpDatabase(GeoIpTestFixtures.bundledReader())
 		val original = database.reader()
 
-		// when — a non-loopback http URL is refused before any request is made
+		// when - a non-loopback http URL is refused before any request is made
 		updater(database, "http://geoip.example.com/db.mmdb.gz").refreshOnStartup()
 
 		// then

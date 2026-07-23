@@ -17,9 +17,8 @@ import java.util.UUID
 @Entity
 @Table(name = "coupons")
 class CouponEntity(
-	// Provider-generated: the id is null until persist, so Spring Data's isNew() picks persist() over
-	// merge() — a plain INSERT with no SELECT-before-INSERT round trip. Non-null once persisted or loaded;
-	// read it through [persistedId].
+	// Provider-generated: id is null until persist, so Spring Data's isNew() picks persist() (a plain INSERT,
+	// no SELECT-before-INSERT). Non-null once persisted or loaded - read it through [persistedId].
 	@Id
 	@GeneratedValue(strategy = GenerationType.UUID)
 	val id: UUID? = null,
@@ -29,7 +28,7 @@ class CouponEntity(
 	val createdAt: Instant,
 	val maxUses: Int,
 	val currentUses: Int,
-	// CHAR(2) column — mapped explicitly so Hibernate validation matches.
+	// CHAR(2) column - mapped explicitly so Hibernate validation matches.
 	@Nonnull
 	@JdbcTypeCode(SqlTypes.CHAR)
 	val country: String,

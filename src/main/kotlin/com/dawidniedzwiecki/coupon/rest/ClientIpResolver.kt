@@ -6,14 +6,10 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 
 /**
- * Resolves the caller's IP for the country check. That check is only as trustworthy as the address it
- * runs on, so by default only the transport remote address is used; the spoofable `X-Forwarded-For`
- * header is honored only when `coupon.rest.trust-client-ip` is set.
- *
- * When trusted, we take the leftmost `X-Forwarded-For` entry as the client. That is correct only behind
- * an ingress that *replaces* the header with the real client address; behind one that *appends* to a
- * client-supplied header the leftmost entry is attacker-controlled, so enabling trust there would let a
- * caller spoof their country. Enable it solely behind a load balancer you know overwrites the header.
+ * Resolves the caller's IP for the country check. By default only the transport remote address is used;
+ * the spoofable `X-Forwarded-For` is honored only when `coupon.rest.trust-client-ip` is set. When trusted
+ * we take the leftmost entry, which is safe only behind an ingress that *replaces* the header - behind one
+ * that *appends*, that entry is attacker-controlled and a caller could spoof their country.
  */
 @Component
 class ClientIpResolver(

@@ -20,7 +20,7 @@ class ClientIpResolverTest {
 			every { getHeader("X-Forwarded-For") } returns "192.0.2.1"
 		}
 
-		// expect — the spoofable header is disregarded
+		// expect - the spoofable header is disregarded
 		assertEquals(IpAddress.of("203.0.113.5"), resolver.resolve(request))
 	}
 
@@ -44,7 +44,7 @@ class ClientIpResolverTest {
 			every { getHeader("X-Forwarded-For") } returns ", 203.0.113.5"
 		}
 
-		// expect — the first non-empty hop is used
+		// expect - the first non-empty hop is used
 		assertEquals(IpAddress.of("203.0.113.5"), resolver.resolve(request))
 	}
 
@@ -56,7 +56,7 @@ class ClientIpResolverTest {
 			every { getHeader("X-Forwarded-For") } returns "not-an-ip"
 		}
 
-		// expect — an unparseable forwarded address is a rejected value (400 at the edge), not a 500
+		// expect - an unparseable forwarded address is a rejected value (400 at the edge), not a 500
 		assertFailsWith<InvalidValueException> { resolver.resolve(request) }
 	}
 

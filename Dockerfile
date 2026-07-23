@@ -18,7 +18,7 @@ RUN ./gradlew --no-daemon clean bootJar -x test
 FROM eclipse-temurin:21-jre@sha256:273396ed5998598ed1091e8d72711c2d36980a0e65103859c55a4e977a41ffd3 AS runtime
 WORKDIR /app
 # curl is only for the HEALTHCHECK below. Not version-pinning it (DL3008): apt pins self-break on a
-# rolling base once the patch is dropped from the archive — the pinned base digest anchors reproducibility.
+# rolling base once the patch is dropped from the archive - the pinned base digest anchors reproducibility.
 # hadolint ignore=DL3008
 RUN apt-get update \
 	&& apt-get install -y --no-install-recommends curl \

@@ -56,7 +56,7 @@ class CouponController(
 		return couponOperations.redeem(request.toCommand(clientIp)).toResponseEntity()
 	}
 
-	/** Rejections carry an RFC 9457 [ProblemDetail]; success is a body-less 200 — hence the ProblemDetail type. */
+	/** Rejections carry an RFC 9457 [ProblemDetail]; success is a body-less 200 - hence the ProblemDetail type. */
 	private fun RedemptionResult.toResponseEntity(): ResponseEntity<ProblemDetail> =
 		when (this) {
 			RedemptionResult.Success ->

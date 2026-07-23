@@ -19,13 +19,13 @@ class DatabaseGeoIpResolverTest {
 
 	@Test
 	fun `resolves the country of a public IP from the bundled database`() {
-		// expect — 8.8.8.8 (Google public DNS) is a stable, well-known US allocation
+		// expect - 8.8.8.8 (Google public DNS) is a stable, well-known US allocation
 		assertEquals(CountryCode.of("US"), resolver.resolveCountry(IpAddress.of("8.8.8.8")))
 	}
 
 	@Test
 	fun `fails closed for a private address not present in the database`() {
-		// expect — reserved ranges have no country, so we reject rather than guess
+		// expect - reserved ranges have no country, so we reject rather than guess
 		assertFailsWith<GeoIpUnavailableException> { resolver.resolveCountry(IpAddress.of("10.0.0.1")) }
 	}
 

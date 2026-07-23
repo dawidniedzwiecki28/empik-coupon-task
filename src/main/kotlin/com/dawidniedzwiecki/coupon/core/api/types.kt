@@ -4,12 +4,12 @@ import com.google.common.net.InetAddresses
 import java.time.Instant
 import java.util.UUID
 
-/** Two-letter country code, upper-cased — ISO 3166-1 alpha-2 shape, not checked against the assigned list. */
+/** Two-letter country code, upper-cased - ISO 3166-1 alpha-2 shape, not checked against the assigned list. */
 @JvmInline
 value class CountryCode private constructor(val value: String) {
 	companion object {
 		fun of(raw: String): CountryCode {
-			// Validate before uppercasing — else a 1-char input like "ß" expands to "SS" and passes.
+			// Validate before uppercasing - else a 1-char input like "ß" expands to "SS" and passes.
 			val trimmed = raw.trim()
 			if (trimmed.length != 2 || !trimmed.all { it in 'A'..'Z' || it in 'a'..'z' }) {
 				throw InvalidValueException("Invalid ISO 3166-1 alpha-2 country code: '$raw'")
@@ -54,7 +54,7 @@ value class CouponCode private constructor(val value: String) {
 	override fun toString(): String = value
 }
 
-/** Caller-supplied user identifier — a mandated UUID the service treats as an opaque identifier. */
+/** Caller-supplied user identifier - a mandated UUID the service treats as an opaque identifier. */
 @JvmInline
 value class UserId(val value: UUID)
 
@@ -74,7 +74,7 @@ data class RedeemCouponCommand(
 	val clientIp: IpAddress,
 )
 
-/** Read model for a single coupon — a framework-free projection so the entity never leaks past core.api. */
+/** Read model for a single coupon - a framework-free projection so the entity never leaks past core.api. */
 data class CouponView(
 	val id: UUID,
 	val code: String,
@@ -84,7 +84,7 @@ data class CouponView(
 	val createdAt: Instant,
 )
 
-/** Expected redemption outcomes — returned, not thrown, so the compiler enforces exhaustive HTTP mapping. */
+/** Expected redemption outcomes - returned, not thrown, so the compiler enforces exhaustive HTTP mapping. */
 sealed interface RedemptionResult {
 	data object Success : RedemptionResult
 
@@ -103,7 +103,7 @@ class InvalidValueException(override val message: String) : IllegalArgumentExcep
 class CouponCodeAlreadyExistsException(val code: String) :
 	RuntimeException("A coupon with code '$code' already exists")
 
-/** No coupon exists for the given id — used by the read endpoint, where absence is a standard REST 404. */
+/** No coupon exists for the given id - used by the read endpoint, where absence is a standard REST 404. */
 class CouponNotFoundException(val id: UUID) :
 	RuntimeException("No coupon exists with id '$id'")
 

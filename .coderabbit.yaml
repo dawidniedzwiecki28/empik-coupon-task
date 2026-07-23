@@ -1,4 +1,4 @@
-# CodeRabbit configuration — tuned to this service's architecture and concurrency model.
+# CodeRabbit configuration - tuned to this service's architecture and concurrency model.
 # The path_instructions teach the reviewer our invariants so it reviews against them.
 language: en-US
 reviews:
@@ -20,9 +20,9 @@ reviews:
     - path: "**/core/**"
       instructions: >
         `core` is a self-contained module (api / domain / infrastructure). Its ONLY external
-        boundary is `core.api` (the CouponOperations interface + DTOs) — that package must not
+        boundary is `core.api` (the CouponOperations interface + DTOs) - that package must not
         expose JPA entities or import Spring Web. WITHIN the module, domain and infrastructure
-        may use Spring Data repositories, @Service, @Transactional and JPA directly — that is the
+        may use Spring Data repositories, @Service, @Transactional and JPA directly - that is the
         intended convention, not a violation. Expected redemption outcomes (CouponNotFound,
         LimitReached, CountryNotAllowed, AlreadyRedeemedByUser, Success) must be modelled as the
         sealed RedemptionResult and returned, NOT thrown. Flag business logic placed in the REST
@@ -37,7 +37,7 @@ reviews:
       instructions: >
         The module's infrastructure: Spring Data JpaRepository interfaces + entities, and outbound
         gateway interfaces (e.g. GeoIpResolver) alongside their adapters (e.g. DatabaseGeoIpResolver).
-        Under this module convention, gateway port interfaces MAY live here next to their adapter — do
+        Under this module convention, gateway port interfaces MAY live here next to their adapter - do
         not flag that. CONCURRENCY-CRITICAL: the usage limit must be an
         atomic conditional UPDATE (... WHERE current_uses < max_uses) acting on the affected
         row / returned row. FLAG any read-then-write or check-then-act on the counter, any
@@ -45,7 +45,7 @@ reviews:
         redemptions to enforce the limit. Per-user uniqueness must be enforced by the
         UNIQUE(coupon_id, user_id) constraint (insert-and-catch-duplicate), not a
         SELECT-then-INSERT. The country lookup is a LOCAL in-memory database read (no network/HTTP
-        call) and INTENTIONALLY runs inside the redemption transaction — do NOT flag that; there is
+        call) and INTENTIONALLY runs inside the redemption transaction - do NOT flag that; there is
         no external geo-IP call to hold a transaction across.
     - path: "**/*Test*.*"
       instructions: >

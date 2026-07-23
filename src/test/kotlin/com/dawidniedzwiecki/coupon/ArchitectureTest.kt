@@ -12,7 +12,7 @@ import com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices
 @AnalyzeClasses(packages = ["com.dawidniedzwiecki.coupon"], importOptions = [ImportOption.DoNotIncludeTests::class])
 class ArchitectureTest {
 
-	// expect — the REST edge reaches the core only through its published API.
+	// expect - the REST edge reaches the core only through its published API.
 	// Scoped to our own `core` package (not a loose `..core..`, which also matches e.g. org.springframework.core).
 	@ArchTest
 	val restReachesTheCoreOnlyThroughTheApi =
@@ -22,7 +22,7 @@ class ArchitectureTest {
 					.and(resideOutsideOfPackage("com.dawidniedzwiecki.coupon.core.api..")),
 			)
 
-	// expect — core.api is a framework-free contract (no Spring, JPA, servlet, or other layer)
+	// expect - core.api is a framework-free contract (no Spring, JPA, servlet, or other layer)
 	@ArchTest
 	val theApiIsAFrameworkFreeContract =
 		noClasses().that().resideInAPackage("..core.api..")
@@ -36,13 +36,13 @@ class ArchitectureTest {
 				"jakarta.servlet..",
 			)
 
-	// expect — the core never depends on the web edge or Spring wiring
+	// expect - the core never depends on the web edge or Spring wiring
 	@ArchTest
 	val theCoreDoesNotDependOnTheWebEdgeOrWiring =
 		noClasses().that().resideInAPackage("com.dawidniedzwiecki.coupon.core..")
 			.should().dependOnClassesThat().resideInAnyPackage("..rest..", "..config..")
 
-	// expect — top-level packages have no dependency cycles
+	// expect - top-level packages have no dependency cycles
 	@ArchTest
 	val topLevelPackagesAreFreeOfCycles =
 		slices().matching("com.dawidniedzwiecki.coupon.(*)..").should().beFreeOfCycles()
