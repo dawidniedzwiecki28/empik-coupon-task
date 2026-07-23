@@ -22,37 +22,59 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
-@RequestMapping("/api/coupons")
+@RequestMapping(CouponController.COUPONS_PATH)
 class CouponController(
 	private val couponOperations: CouponOperations,
 	private val clientIpResolver: ClientIpResolver,
 ) {
 
 	@PostMapping
-	fun create(@Valid @RequestBody request: CreateCouponRequest): ResponseEntity<CreateCouponResponse> {
+	fun createCoupon(@Valid @RequestBody request: CreateCouponRequest): ResponseEntity<CreateCouponResponse> {
 		val couponId = couponOperations.createCoupon(request.toCommand())
 		return ResponseEntity.status(HttpStatus.CREATED).body(CreateCouponResponse(couponId.value))
 	}
 
-	@PostMapping("/redemptions")
-	fun redeem(@Valid @RequestBody request: RedeemCouponRequest, httpRequest: HttpServletRequest): ResponseEntity<Any> {
-		val clientIp = clientIpResolver.resolve(request.ipOverride, httpRequest)
-		val command = request.toCommand(clientIp)
-		return when (val result = couponOperations.redeem(command)) {
-			RedemptionResult.Success -> ResponseEntity.ok().build()
+	@PostMapping(REDEMPTIONS_PATH)
+	fun redeemCoupon(
+		@Valid @RequestBody request: RedeemCouponRequest,
+		httpRequest: HttpServletRequest,
+	): ResponseEntity<ProblemDetail> {
+		val clientIp = clientIpResolver.resolve(httpRequest)
+		return couponOperations.redeem(request.toCommand(clientIp)).toResponseEntity()
+	}
+
+	/**
+	 * Each expected outcome maps to a distinct HTTP status; rejections carry an RFC 9457 [ProblemDetail]
+	 * body, success is a body-less 200. Typed to ProblemDetail because that is the only body emitted.
+	 */
+	private fun RedemptionResult.toResponseEntity(): ResponseEntity<ProblemDetail> =
+		when (this) {
+			RedemptionResult.Success ->
+				ResponseEntity.ok().build()
+
 			RedemptionResult.CouponNotFound ->
-				problem(HttpStatus.NOT_FOUND, "No coupon exists for the supplied code")
+				problemResponse(HttpStatus.NOT_FOUND, "No coupon exists for the supplied code")
+
 			RedemptionResult.LimitReached ->
-				problem(HttpStatus.CONFLICT, "The coupon has reached its usage limit")
+				problemResponse(HttpStatus.CONFLICT, "The coupon has reached its usage limit")
+
 			RedemptionResult.AlreadyRedeemedByUser ->
-				problem(HttpStatus.CONFLICT, "This user has already redeemed the coupon")
+				problemResponse(HttpStatus.CONFLICT, "This user has already redeemed this coupon")
+
 			is RedemptionResult.CountryNotAllowed ->
-				problem(
-					HttpStatus.FORBIDDEN,
-					"The coupon is not available in your country",
-					mapOf("requiredCountry" to result.requiredCountry, "callerCountry" to result.callerCountry),
-				)
+				problemResponse(HttpStatus.FORBIDDEN, "The coupon is not available in the caller's country") {
+					setProperty("requiredCountry", requiredCountry)
+					setProperty("callerCountry", callerCountry)
+				}
 		}
+
+	private fun problemResponse(
+		status: HttpStatus,
+		detail: String,
+		addProperties: ProblemDetail.() -> Unit = {},
+	): ResponseEntity<ProblemDetail> {
+		val problemDetail = ProblemDetail.forStatusAndDetail(status, detail).apply(addProperties)
+		return ResponseEntity.status(status).body(problemDetail)
 	}
 
 	private fun CreateCouponRequest.toCommand(): CreateCouponCommand =
@@ -61,9 +83,8 @@ class CouponController(
 	private fun RedeemCouponRequest.toCommand(clientIp: IpAddress): RedeemCouponCommand =
 		RedeemCouponCommand(CouponCode.of(code), UserId(userId), clientIp)
 
-	private fun problem(status: HttpStatus, detail: String, properties: Map<String, Any> = emptyMap()): ResponseEntity<Any> {
-		val body = ProblemDetail.forStatusAndDetail(status, detail)
-		properties.forEach(body::setProperty)
-		return ResponseEntity.status(status).body(body)
+	companion object {
+		const val COUPONS_PATH = "/api/coupons"
+		const val REDEMPTIONS_PATH = "/redemptions"
 	}
 }

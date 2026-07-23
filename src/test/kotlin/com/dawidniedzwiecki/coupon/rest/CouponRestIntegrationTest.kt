@@ -230,7 +230,8 @@ class CouponRestIntegrationTest @Autowired constructor(
 	private fun redeem(code: String, userId: UUID, ip: String) =
 		mockMvc.post("/api/coupons/redemptions") {
 			contentType = MediaType.APPLICATION_JSON
-			content = """{"code":"$code","userId":"$userId","ipOverride":"$ip"}"""
+			headers { add("X-Forwarded-For", ip) } // trust-client-ip is enabled for this suite
+			content = """{"code":"$code","userId":"$userId"}"""
 		}
 
 	private fun stubCountry(ip: String, country: String) = geoIp.put(ip, country)

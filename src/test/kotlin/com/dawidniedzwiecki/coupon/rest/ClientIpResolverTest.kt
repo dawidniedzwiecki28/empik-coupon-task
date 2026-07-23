@@ -10,7 +10,7 @@ import kotlin.test.assertEquals
 class ClientIpResolverTest {
 
 	@Test
-	fun `ignores client-supplied hints and uses the remote address when trust is off`() {
+	fun `ignores the forwarded header and uses the remote address when trust is off`() {
 		// given
 		val resolver = ClientIpResolver(trustClientIp = false)
 		val request = mock<HttpServletRequest> {
@@ -18,22 +18,12 @@ class ClientIpResolverTest {
 			on { getHeader("X-Forwarded-For") } doReturn "192.0.2.1"
 		}
 
-		// expect — override and header are both disregarded
-		assertEquals(IpAddress.of("203.0.113.5"), resolver.resolve(override = "198.51.100.9", request = request))
+		// expect — the spoofable header is disregarded
+		assertEquals(IpAddress.of("203.0.113.5"), resolver.resolve(request))
 	}
 
 	@Test
-	fun `prefers the override when trust is on`() {
-		// given
-		val resolver = ClientIpResolver(trustClientIp = true)
-		val request = mock<HttpServletRequest>()
-
-		// expect
-		assertEquals(IpAddress.of("198.51.100.9"), resolver.resolve(override = "198.51.100.9", request = request))
-	}
-
-	@Test
-	fun `uses the first X-Forwarded-For hop when trust is on and no override is given`() {
+	fun `uses the first X-Forwarded-For hop when trust is on`() {
 		// given
 		val resolver = ClientIpResolver(trustClientIp = true)
 		val request = mock<HttpServletRequest> {
@@ -41,11 +31,11 @@ class ClientIpResolverTest {
 		}
 
 		// expect
-		assertEquals(IpAddress.of("192.0.2.1"), resolver.resolve(override = null, request = request))
+		assertEquals(IpAddress.of("192.0.2.1"), resolver.resolve(request))
 	}
 
 	@Test
-	fun `falls back to the remote address when trust is on but no hints are present`() {
+	fun `falls back to the remote address when trust is on but no header is present`() {
 		// given
 		val resolver = ClientIpResolver(trustClientIp = true)
 		val request = mock<HttpServletRequest> {
@@ -53,6 +43,6 @@ class ClientIpResolverTest {
 		}
 
 		// expect
-		assertEquals(IpAddress.of("203.0.113.5"), resolver.resolve(override = null, request = request))
+		assertEquals(IpAddress.of("203.0.113.5"), resolver.resolve(request))
 	}
 }
