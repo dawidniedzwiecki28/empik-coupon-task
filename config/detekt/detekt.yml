@@ -1,0 +1,25 @@
+# Overrides layered on top of detekt's default rules (buildUponDefaultConfig = true).
+# The two genuinely-exceptional spots (the IPv6 syntactic validator's complexity, the deliberate
+# broad catch in the geo-IP refresh) are handled with local @Suppress + a comment, not global relaxing.
+
+style:
+  MagicNumber:
+    # The literals here are self-evident domain constants (IP octet ranges, timeouts, HTTP 200, the
+    # byte cap); extracting each to a named constant would add ceremony, not clarity.
+    active: false
+  MaxLineLength:
+    maxLineLength: 160
+  ReturnCount:
+    max: 4
+    excludeGuardClauses: true
+  SerialVersionUIDInSerializableClass:
+    # The @Embeddable composite id is a JPA key, not something Java-serialized across versions.
+    active: false
+  UnusedParameter:
+    # Spring @ExceptionHandler methods take the exception by type; the parameter need not be read.
+    ignoreAnnotated: ['ExceptionHandler']
+
+performance:
+  SpreadOperator:
+    # `runApplication<CouponApplication>(*args)` is the idiomatic Spring Boot entry point.
+    active: false

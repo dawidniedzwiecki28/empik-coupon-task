@@ -47,7 +47,7 @@ class GeoIpDatabaseUpdater(
 		} catch (e: InterruptedException) {
 			Thread.currentThread().interrupt()
 			log.warn("Geo-IP database refresh ({}) interrupted; keeping current database", trigger)
-		} catch (e: Exception) {
+		} catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
 			// Broad on purpose: a background refresh must never escape; ERROR so a stalled refresh is visible.
 			log.error("Geo-IP database refresh ({}) failed; keeping current database", trigger, e)
 		}

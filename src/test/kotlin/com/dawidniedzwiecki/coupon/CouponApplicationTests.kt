@@ -10,6 +10,6 @@ class CouponApplicationTests {
 
 	@Test
 	fun contextLoads() {
+		// Verifies the Spring context (beans, JPA, Flyway) starts successfully.
 	}
-
 }
