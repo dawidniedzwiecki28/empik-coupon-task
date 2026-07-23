@@ -40,3 +40,6 @@ jobs:
           update-comment: true
           # Required coverage — the job fails (CI not green) below this.
           min-coverage-overall: 93
+      # Build the runtime image so the Dockerfile can't silently rot (it isn't loaded/pushed anywhere).
+      - name: Build Docker image
+        run: docker build -t coupon-app:ci .
